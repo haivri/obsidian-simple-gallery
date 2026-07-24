@@ -1,19 +1,15 @@
-# Brussels Sprouts, Roasted Two Ways
+# Simple Roasted Brussels Sprouts
 
-Roasting is the easiest way to make Brussels sprouts taste like something people ask for
-seconds of. This note is a screenshot-ready demo of **Simple Gallery** — swap the
-placeholder image references below for real photos, drop them into `assets/`, and the
-gallery renders them automatically.
+A quick, reliable Brussels sprouts recipe optimized for a Breville countertop oven, while
+also working well in a conventional oven. Ready in about 30 minutes. This note is a
+screenshot-ready demo of **Simple Gallery**, using the actual photos from the recipe below.
 
 ## The short version
 
-Halve a pound of Brussels sprouts and toss them with olive oil, salt, and pepper. Roast at
-425°F (220°C) for 20–25 minutes, shaking the pan halfway through, until the cut sides are
-deeply caramelized. Don't crowd the pan — sprouts steam instead of caramelizing if they're
-stacked more than one layer deep.
-
-Finish with flaky salt and a squeeze of lemon for the plain version, or toss with balsamic
-glaze and toasted hazelnuts for something richer.
+Halve a pound of Brussels sprouts and toss them with olive oil, balsamic vinegar, salt, and
+pepper. Roast at 400°F (205°C) for about 24 minutes, cut side down in a single layer, until
+the centers are tender and the cut sides are deeply caramelized. For a brighter balsamic
+flavor, add a small drizzle after roasting rather than increasing the amount used before.
 
 ## Gallery
 
@@ -23,22 +19,24 @@ reference for the syntax. None of this is required: see **Minimal usage** below 
 plain version.
 
 ```simple-gallery
-note: A weeknight side that turns into the best thing on the plate.
+note: A quick, reliable side dish ready in about 30 minutes.
 
 section: Prep
-  note: Don't rush the cut — even pieces roast evenly.
+  note: Get the seasoning ready before you touch the sprouts.
 - ![[brussels-1.jpg]]
-  caption: Halved and tossed with oil, salt, and pepper
+  caption: Whisking olive oil, balsamic vinegar, salt, and pepper
 - ![[brussels-2.jpg]]
+- ![[brussels-3.jpg]]
+  caption: Tossed until every sprout is coated
 
 section: Roasting
   note: High heat and a single layer are non-negotiable.
-- ![[brussels-3.jpg]]
-  caption: Cut side down, ready for the oven
 - ![[brussels-4.jpg]]
-  caption: Roasting at 425°F
+  caption: Cut side down, arranged in a single layer
 - ![[brussels-5.jpg]]
-  caption: Finished with balsamic glaze and toasted hazelnuts
+  caption: Roasting at 400°F for about 24 minutes
+- ![[brussels-6.jpg]]
+  caption: A finishing drizzle of balsamic after roasting
 ```
 
 ## Minimal usage
@@ -47,16 +45,16 @@ Sections, notes, and captions are all optional. Leave them out entirely and a
 `simple-gallery` block is just a flat list of photos:
 
 ```simple-gallery
-- ![[brussels-1.jpg]]
-- ![[brussels-3.jpg]]
-- ![[brussels-5.jpg]]
+- ![[brussels-2.jpg]]
+- ![[brussels-4.jpg]]
+- ![[brussels-6.jpg]]
 ```
 
 ## Notes for screenshots
 
-- Replace `brussels-1.jpg` through `brussels-5.jpg` in `assets/` with real photos of any
-  size or aspect ratio — Simple Gallery sizes each thumbnail from its own photo's
-  proportions automatically (the default **Masonry** layout).
+- The photos above are the real ones from the recipe, straight out of the camera — Simple
+  Gallery sizes each thumbnail from its own photo's proportions automatically (the default
+  **Masonry** layout), so there's no need to crop or standardize them first.
 - Capture the gallery above **twice**: once with the default Masonry layout, and once
   after switching **Settings → Simple Gallery → Layout** to **Grid (uniform)** — both
   screenshots go in the README's "See it in action" section to show the toggle.
@@ -65,5 +63,3 @@ Sections, notes, and captions are all optional. Leave them out entirely and a
 - Click a thumbnail to confirm **Fullscreen Image** (if installed) still opens it in its
   lightbox — Simple Gallery renders plain images and relies entirely on that plugin for
   zooming; it has no lightbox of its own.
-- Send me the original image files. I can crop and optimize them, place them in `assets/`,
-  update the README, commit, push, and publish the release.
