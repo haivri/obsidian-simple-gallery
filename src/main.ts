@@ -4,6 +4,7 @@ import {
   EditorPosition,
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
+  Modal,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -310,7 +311,12 @@ function renderGalleryBlock(
   isLivePreview: boolean
 ): void {
   el.addClass('simple-gallery-root');
-  if (isLivePreview) el.addClass('simple-gallery-editable');
+  if (isLivePreview) {
+    el.addClass('simple-gallery-editable');
+    const settingsButton = el.createEl('button', { cls: 'simple-gallery-settings-button', text: '⚙' });
+    settingsButton.type = 'button';
+    settingsButton.setAttribute('aria-label', 'Gallery settings');
+  }
   applyBlockOverrides(el, block);
 
   if (block.intro) {
@@ -477,6 +483,140 @@ const GALLERY_TEMPLATE_ITEM = '![[image.jpg]]';
 const GALLERY_TEMPLATE_ITEM_PREFIX = '- ';
 
 // ---------------------------------------------------------------------------
+// Per-gallery settings modal, opened from the gear button in Live Preview.
+// ---------------------------------------------------------------------------
+
+interface GalleryOverrides {
+  layout?: GalleryLayout;
+  minThumbnailSize?: number;
+  gapSize?: number;
+  showCaptions?: boolean;
+  captionFont?: CaptionFont;
+  captionLines?: CaptionLines;
+}
+
+/**
+ * Lets a single gallery's settings be edited visually instead of by hand-
+ * typing preamble fields. Every control starts at this gallery's current
+ * effective value (its own override, or else the live global default).
+ * Saving only writes fields that end up differing from the current global
+ * default -- pick a value that matches "normal" and no override line is
+ * added at all, keeping the block clean.
+ */
+class GallerySettingsModal extends Modal {
+  private layout: GalleryLayout;
+  private minThumbnailSize: number;
+  private gapSize: number;
+  private showCaptions: boolean;
+  private captionFont: CaptionFont;
+  private captionLines: CaptionLines;
+
+  constructor(
+    app: App,
+    private readonly defaults: SimpleGallerySettings,
+    block: GalleryBlock,
+    private readonly onSave: (overrides: GalleryOverrides) => void
+  ) {
+    super(app);
+    this.layout = block.layout ?? defaults.layout;
+    this.minThumbnailSize = block.minThumbnailSize ?? defaults.minThumbnailSize;
+    this.gapSize = block.gapSize ?? defaults.gapSize;
+    this.showCaptions = block.showCaptions ?? defaults.showCaptions;
+    this.captionFont = block.captionFont ?? defaults.captionFont;
+    this.captionLines = block.captionLines ?? defaults.captionLines;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Gallery settings' });
+    contentEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: 'Only applies to this gallery. A control left matching the current global default won’t add an override.'
+    });
+
+    new Setting(contentEl)
+      .setName('Layout')
+      .addDropdown((dropdown) => dropdown
+        .addOption('masonry', 'Masonry (artistic)')
+        .addOption('grid', 'Grid (uniform)')
+        .setValue(this.layout)
+        .onChange((value) => {
+          this.layout = value === 'grid' ? 'grid' : 'masonry';
+        }));
+
+    new Setting(contentEl)
+      .setName('Minimum thumbnail size')
+      .addSlider((slider) => slider
+        .setLimits(80, 400, 10)
+        .setValue(this.minThumbnailSize)
+        .onChange((value) => {
+          this.minThumbnailSize = value;
+        }));
+
+    new Setting(contentEl)
+      .setName('Gap between images')
+      .addSlider((slider) => slider
+        .setLimits(0, 32, 2)
+        .setValue(this.gapSize)
+        .onChange((value) => {
+          this.gapSize = value;
+        }));
+
+    new Setting(contentEl)
+      .setName('Show captions')
+      .addToggle((toggle) => toggle
+        .setValue(this.showCaptions)
+        .onChange((value) => {
+          this.showCaptions = value;
+        }));
+
+    new Setting(contentEl)
+      .setName('Caption font')
+      .addDropdown((dropdown) => dropdown
+        .addOption('default', 'Default')
+        .addOption('monospace', 'Typewriter (monospace)')
+        .setValue(this.captionFont)
+        .onChange((value) => {
+          this.captionFont = value === 'monospace' ? 'monospace' : 'default';
+        }));
+
+    new Setting(contentEl)
+      .setName('Caption length')
+      .addDropdown((dropdown) => dropdown
+        .addOption('full', 'Full')
+        .addOption('single', 'Single line')
+        .setValue(this.captionLines)
+        .onChange((value) => {
+          this.captionLines = value === 'single' ? 'single' : 'full';
+        }));
+
+    new Setting(contentEl)
+      .addButton((button) => button
+        .setButtonText('Save')
+        .setCta()
+        .onClick(() => {
+          this.onSave({
+            layout: this.layout === this.defaults.layout ? undefined : this.layout,
+            minThumbnailSize:
+              this.minThumbnailSize === this.defaults.minThumbnailSize ? undefined : this.minThumbnailSize,
+            gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
+            showCaptions: this.showCaptions === this.defaults.showCaptions ? undefined : this.showCaptions,
+            captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
+            captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines
+          });
+          this.close();
+        }))
+      .addButton((button) => button
+        .setButtonText('Cancel')
+        .onClick(() => this.close()));
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Masonry sizing: a CSS Grid + ResizeObserver technique, no external library.
 //
 // Each item's row-span is derived from its image's natural aspect ratio at
@@ -499,7 +639,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
     private readonly app: App,
     private readonly ctx: MarkdownPostProcessorContext,
     private readonly block: GalleryBlock,
-    private readonly isLivePreview: boolean
+    private readonly isLivePreview: boolean,
+    private readonly settings: SimpleGallerySettings
   ) {
     super(containerEl);
   }
@@ -526,6 +667,16 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.scheduleRecompute(grids);
 
     if (this.isLivePreview) {
+      const settingsButton = this.containerEl.querySelector<HTMLElement>(':scope > .simple-gallery-settings-button');
+      if (settingsButton) {
+        this.registerDomEvent(settingsButton, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
+          new GallerySettingsModal(this.app, this.settings, this.block, (overrides) => {
+            void this.commitOverrides(overrides);
+          }).open();
+        });
+      }
+
       this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-section-title').forEach((titleEl) => {
         const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
         this.wireSectionTitleEditing(titleEl, sectionIndex);
@@ -636,6 +787,17 @@ class GalleryRenderChild extends MarkdownRenderChild {
     const newSection: GallerySection = { label: 'New section', items: movedItems };
     this.block.sections.splice(sectionIndex + 1, 0, newSection);
 
+    await this.writeBlockToFile();
+  }
+
+  /** Applies the (already default-filtered) overrides chosen in GallerySettingsModal. */
+  private async commitOverrides(overrides: GalleryOverrides): Promise<void> {
+    this.block.layout = overrides.layout;
+    this.block.minThumbnailSize = overrides.minThumbnailSize;
+    this.block.gapSize = overrides.gapSize;
+    this.block.showCaptions = overrides.showCaptions;
+    this.block.captionFont = overrides.captionFont;
+    this.block.captionLines = overrides.captionLines;
     await this.writeBlockToFile();
   }
 
@@ -808,7 +970,7 @@ export default class SimpleGalleryPlugin extends Plugin {
         // presentation with no editing affordances rather than a guess.
         const isLivePreview = el.closest('.markdown-source-view') !== null;
         renderGalleryBlock(this.app, block, el, ctx.sourcePath, isLivePreview);
-        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, isLivePreview));
+        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, isLivePreview, this.settings));
       }
     );
 

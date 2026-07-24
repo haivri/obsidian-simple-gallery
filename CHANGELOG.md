@@ -16,5 +16,6 @@ All notable changes to Simple Gallery will be documented here.
 - Click and drag a thumbnail to reorder it within its section; the code block is rewritten to match. Hover a photo to reveal "+ section above"/"+ section below" buttons that split its section in two.
 - Click a caption or a section name directly in the rendered gallery to edit it in place. A photo without a caption reveals a "+ add caption" placeholder on hover rather than showing all the time.
 - All editing affordances (reordering, click-to-edit, add-section buttons, the empty-caption placeholder) only appear in Live Preview — Reading Mode is pure presentation, with no caption unless a photo actually has one.
+- A gear button on hover opens a settings modal scoped to just that gallery, with the same controls as the Settings tab; a control left matching the global default doesn't get written as an override.
 - Public CSS custom properties for corner radius, hover effect, colors, and more.
 - Local-first operation with no telemetry or network requests.

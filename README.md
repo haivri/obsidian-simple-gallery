@@ -124,6 +124,11 @@ caption unless a photo actually has one, no buttons, nothing but the gallery its
   buttons; click one to split its section into two right there, with a "New section" label
   ready to rename. Splitting at the very first or last photo of a section creates an empty
   section on that side rather than being disabled — a rare, harmless edge case.
+- **Gallery settings** — Hover the gallery and a gear button appears in the corner. It opens
+  the same Layout / thumbnail size / gap / captions / caption font / caption length
+  controls as the main Settings tab, scoped to just this gallery. A control left matching
+  the current global default doesn't get written as an override, so a gallery you haven't
+  customized stays clean either way.
 
 Every one of these rewrites just the affected part of the gallery's code block and leaves
 everything else — other galleries, the rest of the note — untouched.

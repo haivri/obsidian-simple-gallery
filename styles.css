@@ -24,7 +24,38 @@ body {
 }
 
 .simple-gallery-root {
+  position: relative;
   margin: 0.8em 0;
+}
+
+/* Gear button (Live Preview only): opens GallerySettingsModal, revealed on hover over the whole gallery. */
+.simple-gallery-settings-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  width: 1.8em;
+  height: 1.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border: 1px solid var(--simple-gallery-border);
+  border-radius: 999px;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease-out, color 120ms ease-out;
+}
+
+.simple-gallery-root:hover .simple-gallery-settings-button {
+  opacity: 0.85;
+}
+
+.simple-gallery-settings-button:hover {
+  opacity: 1;
+  color: var(--text-normal);
 }
 
 .simple-gallery-intro,
