@@ -1,0 +1,34 @@
+{
+  "name": "simple-gallery",
+  "version": "1.0.0",
+  "description": "Turn a simple, YAML-inspired list of image embeds into a responsive photo grid.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit -p tsconfig.json && node esbuild.config.mjs production",
+    "lint": "eslint src/**/*.ts",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "gallery",
+    "images",
+    "grid",
+    "photos",
+    "portfolio"
+  ],
+  "author": "Robert Fleming",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.4.0",
+    "globals": "^17.6.0",
+    "obsidian": "latest",
+    "typescript": "^5.5.0"
+  }
+}

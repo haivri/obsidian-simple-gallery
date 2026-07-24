@@ -1,0 +1,191 @@
+# Simple Gallery
+
+Turn a simple list of image embeds into a responsive, portfolio-style photo gallery — no
+frontmatter, no per-image HTML, just a short list in a code block.
+
+Simple Gallery is deliberately small and local-first. It does not modify your notes,
+collect telemetry, or make network requests.
+
+## Features
+
+- Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
+- Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias) or bare
+  filenames/relative paths.
+- Optional per-image captions, optional `section:` groupings, and an optional intro
+  blurb — all opt-in; a plain list of images works with none of them.
+- Default **Masonry** layout sizes each thumbnail from its own photo's natural
+  proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
+  clean, uniform tiles instead.
+- Broken or unresolved image references degrade gracefully to an inline placeholder.
+- A documented set of CSS custom properties for deeper visual customization via snippets.
+- Works without external services on desktop and mobile.
+
+## See it in action
+
+<p align="center">
+  <img src="assets/simple-gallery-masonry.png" alt="Simple Gallery rendering a Brussels sprouts recipe with the default Masonry layout" width="900">
+</p>
+
+### An artistic, photographer-style default
+
+Masonry sizes each thumbnail from its own photo's proportions — tall photos get a taller
+cell, wide photos a wider one — with no manual tagging required.
+
+### A clean, uniform alternative
+
+<p align="center">
+  <img src="assets/simple-gallery-grid.png" alt="The same gallery rendered with the uniform Grid layout" width="900">
+</p>
+
+Switch to the **Grid** layout in settings for evenly cropped, uniform tiles instead.
+
+### Settings
+
+<p align="center">
+  <img src="assets/simple-gallery-settings.png" alt="Simple Gallery settings showing the Layout, thumbnail size, gap, and caption controls" width="900">
+</p>
+
+## Usage
+
+Add a fenced code block with the language tag `simple-gallery`. List one image per line,
+each starting with `- `. Reference images the same way you would embed them anywhere else
+in Obsidian — a wikilink embed (`![[photo.jpg]]`, with an alias like Obsidian's own embed
+syntax if you like) or a bare filename/relative path both work:
+
+    ```simple-gallery
+    - ![[brussels-1.jpg]]
+    - ![[brussels-2.jpg]]
+      caption: Roasting at 425°F
+    - ![[brussels-3.jpg]]
+    ```
+
+Simple Gallery resolves each reference the same way Obsidian resolves any other embed, so
+images anywhere in the vault work without a full path. If a reference can't be resolved,
+that one item renders as a small broken-image placeholder instead of failing the whole
+block.
+
+### Captions
+
+Add an optional caption on the line directly below an item, indented and prefixed with
+`caption:`. Captions are entirely optional — leave them off any item you don't want one for.
+
+### Sections and notes
+
+For a longer gallery, group images under labeled sections, each with its own optional
+blurb, plus an optional intro blurb for the whole gallery:
+
+    ```simple-gallery
+    note: A weeknight side that turns into the best thing on the plate.
+
+    section: Prep
+      note: Don't rush the cut — even pieces roast evenly.
+    - ![[brussels-1.jpg]]
+      caption: Halved and tossed with oil, salt, and pepper
+    - ![[brussels-2.jpg]]
+
+    section: Roasting
+      note: High heat and a single layer are non-negotiable.
+    - ![[brussels-3.jpg]]
+      caption: Cut side down, ready for the oven
+    ```
+
+Sections and notes are entirely optional. A block with no `section:` lines at all renders
+exactly like the plain list above — one flat gallery, no headings.
+
+> **Note:** this syntax is YAML-inspired, not strict YAML. Real YAML treats a leading `!`
+> as a tag indicator and can't parse an unquoted `![[...]]` embed, which would force
+> quoting every image link. Simple Gallery instead uses a small, tolerant line parser built
+> specifically for this shape: a top-level `- ` line is an image, an indented `caption:`
+> line beneath it is that image's caption, a top-level `section:` line starts a labeled
+> group, and an indented `note:` line beneath a section (or at the very top of the block)
+> is a short blurb. Nothing else in the block is interpreted.
+
+## Settings
+
+- **Layout** — **Masonry** (default) sizes each thumbnail from its own photo's
+  proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles
+  instead. Switching this instantly updates any gallery already open.
+- **Minimum thumbnail size** — Smallest width a thumbnail can shrink to before the grid
+  wraps to fewer columns.
+- **Gap between images** — Spacing between thumbnails.
+- **Show captions** — Display captions under images that have one. Turn this off for a
+  clean, caption-free grid — useful for print or export — without removing captions from
+  the source.
+
+Finer visual control (corner radius, hover effect, colors) is available through CSS
+custom properties rather than additional settings. See
+[Customizing the appearance](#customizing-the-appearance) below.
+
+## Customizing the appearance
+
+Themes and CSS snippets can override the plugin's public variables. For example:
+
+```css
+body {
+  --simple-gallery-radius: 4px;
+  --simple-gallery-hover-scale: 1;
+  --simple-gallery-background: var(--background-primary);
+  --simple-gallery-caption-color: var(--text-faint);
+}
+```
+
+Because these are ordinary CSS custom properties, users have final control without
+editing the plugin files.
+
+## Installation
+
+### Community Plugins
+
+Once accepted, install **Simple Gallery** from **Settings → Community plugins → Browse**.
+
+### Manual installation
+
+Copy `main.js`, `manifest.json`, and `styles.css` from a release into:
+
+```text
+<vault>/.obsidian/plugins/simple-gallery/
+```
+
+Then reload Obsidian and enable **Simple Gallery** under Community plugins.
+
+## Development
+
+Requires Node.js 20 or newer.
+
+```bash
+npm install
+npm run dev     # esbuild watch mode
+npm run build   # type-check + production build
+npm run lint
+```
+
+## Release checklist
+
+1. Run `npm run build` and `npm run lint`.
+2. Test a gallery in both Reading view and Live Preview, in both layout modes, and in both
+   light and dark themes.
+3. Run `npm version patch`, `npm version minor`, or `npm version major`. The version
+   script keeps `manifest.json` and `versions.json` in sync.
+4. Push the resulting numeric tag (for example `1.0.1`). GitHub Actions builds the plugin
+   and attaches `main.js`, `manifest.json`, and `styles.css` to the GitHub Release.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Please keep the plugin focused: it should
+remain a simple, dependable gallery renderer that respects local-first Obsidian workflows.
+Before opening a pull request, run `npm run build` and `npm run lint`. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full checklist.
+
+## Privacy
+
+Simple Gallery does not collect telemetry, make network requests, or send vault data
+anywhere.
+
+## Support
+
+If **Simple Gallery** improves your workflow, you can support its continued development on
+[Buy Me a Coffee](https://www.buymeacoffee.com/robertfleming).
+
+## License
+
+MIT

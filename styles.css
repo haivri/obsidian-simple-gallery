@@ -1,0 +1,137 @@
+/*
+ * Public appearance API
+ *
+ * Themes and snippets can override any --simple-gallery-* variable below.
+ * The declarations intentionally have low specificity so a user snippet
+ * loaded after the plugin wins without !important.
+ *
+ * --simple-gallery-min-size and --simple-gallery-gap are also driven by the
+ * plugin's settings tab, which writes them onto document.body at runtime.
+ * The values below are just the pre-settings-load fallback.
+ */
+body {
+  --simple-gallery-min-size: 160px;
+  --simple-gallery-gap: 8px;
+  --simple-gallery-radius: 10px;
+  --simple-gallery-row-unit: 8px;
+  --simple-gallery-aspect-ratio: 1;
+  --simple-gallery-hover-scale: 1.03;
+  --simple-gallery-background: var(--background-secondary);
+  --simple-gallery-caption-color: var(--text-muted);
+  --simple-gallery-border: var(--background-modifier-border);
+  --simple-gallery-broken-color: var(--text-error);
+}
+
+.simple-gallery-root {
+  margin: 0.8em 0;
+}
+
+.simple-gallery-intro,
+.simple-gallery-note {
+  margin: 0 0 0.5em;
+  color: var(--simple-gallery-caption-color);
+  font-size: 0.92em;
+  line-height: 1.4;
+}
+
+.simple-gallery-section {
+  margin: 0 0 1.2em;
+}
+
+.simple-gallery-section:last-child {
+  margin-bottom: 0;
+}
+
+.simple-gallery-section-title {
+  margin: 0 0 0.2em;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+/* --- Grid: Masonry (default) --- */
+
+.simple-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--simple-gallery-min-size), 1fr));
+  grid-auto-rows: var(--simple-gallery-row-unit);
+  align-items: start;
+  gap: var(--simple-gallery-gap);
+}
+
+.simple-gallery-item {
+  grid-row-end: span var(--simple-gallery-row-span, 20);
+  margin: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--simple-gallery-radius);
+  background: var(--simple-gallery-background);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.simple-gallery-item:hover {
+  transform: scale(var(--simple-gallery-hover-scale));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.simple-gallery-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--simple-gallery-radius) var(--simple-gallery-radius) 0 0;
+}
+
+.simple-gallery-caption {
+  margin: 0;
+  padding: 0.35em 0.5em;
+  font-size: 0.82em;
+  line-height: 1.3;
+  color: var(--simple-gallery-caption-color);
+  text-align: center;
+}
+
+.simple-gallery-hide-captions .simple-gallery-caption {
+  display: none;
+}
+
+/* --- Grid: uniform (opt-in via settings) --- */
+
+body.simple-gallery-layout-grid .simple-gallery-grid {
+  grid-auto-rows: auto;
+}
+
+body.simple-gallery-layout-grid .simple-gallery-item {
+  grid-row-end: auto;
+}
+
+body.simple-gallery-layout-grid .simple-gallery-img {
+  aspect-ratio: var(--simple-gallery-aspect-ratio, 1);
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--simple-gallery-radius);
+}
+
+/* --- Broken/unresolved image placeholder --- */
+
+.simple-gallery-broken {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.6em 0.7em;
+  aspect-ratio: 1;
+  border: 1px dashed var(--simple-gallery-border);
+  border-radius: var(--simple-gallery-radius);
+  background: var(--simple-gallery-background);
+  color: var(--simple-gallery-broken-color);
+  font-size: 0.82em;
+}
+
+.simple-gallery-broken-text {
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simple-gallery-item {
+    transition: none;
+  }
+}
