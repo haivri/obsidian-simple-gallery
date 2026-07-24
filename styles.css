@@ -125,25 +125,36 @@ body {
 }
 
 /*
- * The "+ add caption" placeholder only ever exists in Live Preview (Reading
- * Mode never renders it at all). It stays fully collapsed -- zero height,
- * not just invisible -- until the item is hovered, then accordions open.
+ * The "+ add caption" placeholder is stripped out entirely in Reading Mode
+ * (see GalleryRenderChild.stripInteractiveMarkup). In Live Preview it sits
+ * absolutely positioned over the bottom of the photo -- not in normal flow
+ * like a real caption -- specifically so it never affects the item's own
+ * height. Masonry's row-span is computed from the item's collapsed-state
+ * scrollHeight; anything added here that took up flow space would need a
+ * grid cell taller than what was actually measured, and get clipped by the
+ * item's own overflow:hidden. Positioning it as a hover-revealed overlay
+ * instead sidesteps that entirely -- it slides up from the bottom edge on
+ * hover and never changes the item's box height.
  */
 .simple-gallery-caption-empty {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  opacity: 0;
-  overflow: hidden;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0.4em 0.6em;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
+  color: #fff;
+  text-align: center;
   font-style: italic;
-  transition: max-height 160ms ease-out, opacity 120ms ease-out, padding 160ms ease-out;
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 160ms ease-out, opacity 160ms ease-out;
 }
 
 .simple-gallery-item:hover .simple-gallery-caption-empty {
-  max-height: 2.5em;
-  padding-top: 0.35em;
-  padding-bottom: 0.35em;
-  opacity: 0.9;
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .simple-gallery-edit-input {

@@ -296,27 +296,23 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
 }
 
 /**
- * isLivePreview gates every editing affordance: the empty-caption
- * placeholder, the section-insert buttons, and (in GalleryRenderChild)
- * drag-and-drop plus click-to-edit. Reading Mode -- and any other context
- * this renders in that isn't confirmed to be Live Preview, such as a hover
- * preview popover -- gets pure presentation with none of it, per design:
- * no caption unless one exists, no buttons, nothing but the photos.
+ * Always renders the full interactive markup (editable class, gear button,
+ * empty-caption placeholders, section-insert buttons) -- there is no
+ * reliable way to know here whether this is Live Preview or Reading Mode:
+ * Obsidian can build this widget before it's attached under
+ * .markdown-source-view/.markdown-reading-view, so checking el.closest()
+ * at this point produced false negatives in practice. GalleryRenderChild's
+ * onload() runs after attachment (proven by the masonry sizing, which
+ * depends on layout being complete) and strips this markup back out there
+ * if it turns out to be Reading Mode -- invisibly, since every element it
+ * adds defaults to opacity/max-height 0 until hovered.
  */
-function renderGalleryBlock(
-  app: App,
-  block: GalleryBlock,
-  el: HTMLElement,
-  sourcePath: string,
-  isLivePreview: boolean
-): void {
-  el.addClass('simple-gallery-root');
-  if (isLivePreview) {
-    el.addClass('simple-gallery-editable');
-    const settingsButton = el.createEl('button', { cls: 'simple-gallery-settings-button', text: '⚙' });
-    settingsButton.type = 'button';
-    settingsButton.setAttribute('aria-label', 'Gallery settings');
-  }
+function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
+  el.addClass('simple-gallery-root', 'simple-gallery-editable');
+  const settingsButton = el.createEl('button', { cls: 'simple-gallery-settings-button', text: '⚙' });
+  settingsButton.type = 'button';
+  settingsButton.setAttribute('aria-label', 'Gallery settings');
+
   applyBlockOverrides(el, block);
 
   if (block.intro) {
@@ -342,21 +338,15 @@ function renderGalleryBlock(
     const grid = parent.createDiv({ cls: 'simple-gallery-grid' });
     grid.dataset.sectionIndex = String(sectionIndex);
     for (const item of section.items) {
-      renderGalleryItem(app, grid, item, sourcePath, isLivePreview);
+      renderGalleryItem(app, grid, item, sourcePath);
     }
   });
 }
 
-function renderGalleryItem(
-  app: App,
-  grid: HTMLElement,
-  item: GalleryItem,
-  sourcePath: string,
-  isLivePreview: boolean
-): void {
+function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
   const src = resolveGalleryImageSrc(app, item.linkpath, sourcePath);
   if (!src) {
-    renderBrokenItem(grid, item, isLivePreview);
+    renderBrokenItem(grid, item);
     return;
   }
 
@@ -368,18 +358,17 @@ function renderGalleryItem(
 
   if (item.caption) {
     figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
-  } else if (isLivePreview) {
+  } else {
     const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption simple-gallery-caption-empty' });
     caption.setText('+ add caption');
   }
 
-  if (isLivePreview) renderSectionInsertButtons(figure);
+  renderSectionInsertButtons(figure);
 }
 
 /**
  * Small "add a section boundary here" buttons, revealed on hover over an
- * item -- the visual counterpart to hand-typing a "section:" line. Only
- * ever rendered in Live Preview.
+ * item -- the visual counterpart to hand-typing a "section:" line.
  */
 function renderSectionInsertButtons(item: HTMLElement): void {
   const above = item.createEl('button', {
@@ -397,11 +386,11 @@ function renderSectionInsertButtons(item: HTMLElement): void {
   below.draggable = false;
 }
 
-function renderBrokenItem(grid: HTMLElement, item: GalleryItem, isLivePreview: boolean): void {
+function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
   const broken = grid.createDiv({ cls: 'simple-gallery-item simple-gallery-broken' });
   broken.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
   broken.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
-  if (isLivePreview) renderSectionInsertButtons(broken);
+  renderSectionInsertButtons(broken);
 }
 
 // ---------------------------------------------------------------------------
@@ -634,28 +623,46 @@ class GalleryRenderChild extends MarkdownRenderChild {
   private draggedSectionIndex = -1;
   private draggedItemIndex = -1;
 
+  private isLivePreview = false;
+
   constructor(
     containerEl: HTMLElement,
     private readonly app: App,
     private readonly ctx: MarkdownPostProcessorContext,
     private readonly block: GalleryBlock,
-    private readonly isLivePreview: boolean,
-    private readonly settings: SimpleGallerySettings
+    private readonly plugin: SimpleGalleryPlugin
   ) {
     super(containerEl);
   }
 
-  onload(): void {
-    const grids = Array.from(this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-grid'));
-    if (grids.length === 0) return;
+  /**
+   * Determining Live Preview vs. Reading Mode has to happen here, not at
+   * render time: Obsidian can build this widget before it's attached under
+   * .markdown-source-view/.markdown-reading-view, so el.closest() at render
+   * time produced false negatives in practice (confirmed by comparing real
+   * DOM dumps from both modes). onload() runs after attachment -- proven by
+   * the masonry sizing below, which depends on layout being complete -- so
+   * the check is reliable here. If it's Reading Mode, the interactive
+   * markup rendered unconditionally gets stripped back out; since all of it
+   * defaults to invisible (opacity/max-height 0) until hovered, there's
+   * nothing to see in the moment before it's removed.
+   */
+  private grids: HTMLElement[] = [];
 
-    this.observer = new ResizeObserver(() => this.scheduleRecompute(grids));
-    grids.forEach((grid) => {
+  onload(): void {
+    this.isLivePreview = this.containerEl.closest('.markdown-source-view') !== null;
+    if (!this.isLivePreview) this.stripInteractiveMarkup();
+
+    this.grids = Array.from(this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-grid'));
+    if (this.grids.length === 0) return;
+
+    this.observer = new ResizeObserver(() => this.scheduleRecompute(this.grids));
+    this.grids.forEach((grid) => {
       const sectionIndex = Number(grid.dataset.sectionIndex ?? '0');
       this.observer?.observe(grid);
       grid.querySelectorAll<HTMLImageElement>('img.simple-gallery-img').forEach((img) => {
         if (!img.complete) {
-          this.registerDomEvent(img, 'load', () => this.scheduleRecompute(grids));
+          this.registerDomEvent(img, 'load', () => this.scheduleRecompute(this.grids));
         }
       });
       if (this.isLivePreview) {
@@ -664,14 +671,15 @@ class GalleryRenderChild extends MarkdownRenderChild {
         this.wireSectionInsertButtons(grid, sectionIndex);
       }
     });
-    this.scheduleRecompute(grids);
+    this.scheduleRecompute(this.grids);
+    this.plugin.galleryInstances.add(this);
 
     if (this.isLivePreview) {
       const settingsButton = this.containerEl.querySelector<HTMLElement>(':scope > .simple-gallery-settings-button');
       if (settingsButton) {
         this.registerDomEvent(settingsButton, 'click', (evt: MouseEvent) => {
           evt.stopPropagation();
-          new GallerySettingsModal(this.app, this.settings, this.block, (overrides) => {
+          new GallerySettingsModal(this.app, this.plugin.settings, this.block, (overrides) => {
             void this.commitOverrides(overrides);
           }).open();
         });
@@ -684,9 +692,29 @@ class GalleryRenderChild extends MarkdownRenderChild {
     }
   }
 
+  /** Removes the interactive-only markup rendered unconditionally, for Reading Mode. */
+  private stripInteractiveMarkup(): void {
+    this.containerEl.removeClass('simple-gallery-editable');
+    this.containerEl.querySelector(':scope > .simple-gallery-settings-button')?.remove();
+    this.containerEl.querySelectorAll('.simple-gallery-caption-empty').forEach((el) => el.remove());
+    this.containerEl.querySelectorAll('.simple-gallery-section-insert').forEach((el) => el.remove());
+  }
+
+  /**
+   * Called by the plugin after any global setting changes. A body-level
+   * class/CSS-variable toggle (e.g. Show captions, Caption font) can change
+   * an item's rendered height without the grid itself resizing, which the
+   * ResizeObserver alone would never notice -- so every live instance needs
+   * an explicit nudge to recompute its masonry row-spans against the new state.
+   */
+  recomputeNow(): void {
+    this.scheduleRecompute(this.grids);
+  }
+
   onunload(): void {
     this.observer?.disconnect();
     this.observer = null;
+    this.plugin.galleryInstances.delete(this);
   }
 
   /**
@@ -954,6 +982,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
 export default class SimpleGalleryPlugin extends Plugin {
   settings: SimpleGallerySettings = DEFAULT_SETTINGS;
+  /** Every currently-rendered gallery, so a settings change can nudge each one to re-measure. */
+  readonly galleryInstances = new Set<GalleryRenderChild>();
 
   async onload(): Promise<void> {
     const stored = (await this.loadData()) as Partial<SimpleGallerySettings> | null;
@@ -965,12 +995,8 @@ export default class SimpleGalleryPlugin extends Plugin {
       'simple-gallery',
       (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
         const block = parseGalleryBlock(source);
-        // Live Preview renders inside .markdown-source-view; Reading Mode (and
-        // any other context, e.g. a hover preview) doesn't -- and gets pure
-        // presentation with no editing affordances rather than a guess.
-        const isLivePreview = el.closest('.markdown-source-view') !== null;
-        renderGalleryBlock(this.app, block, el, ctx.sourcePath, isLivePreview);
-        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, isLivePreview, this.settings));
+        renderGalleryBlock(this.app, block, el, ctx.sourcePath);
+        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, this));
       }
     );
 
@@ -1023,8 +1049,14 @@ export default class SimpleGalleryPlugin extends Plugin {
 
   /**
    * Writes settings as CSS custom properties/classes on <body>. Because these
-   * are ordinary inherited CSS, every open gallery updates live when a
-   * setting changes, with no per-instance re-render or tracking needed.
+   * are ordinary inherited CSS, every open gallery updates its appearance
+   * live when a setting changes, with no per-instance re-render needed.
+   *
+   * A body-level class toggle (e.g. Show captions, Caption font) can change
+   * an item's rendered height without the grid itself resizing -- something
+   * a masonry gallery's own ResizeObserver would never notice on its own --
+   * so every live instance also gets an explicit nudge to recompute its
+   * row-spans against the new state.
    */
   private applyAppearanceSettings(): void {
     document.body.style.setProperty('--simple-gallery-min-size', `${this.settings.minThumbnailSize}px`);
@@ -1033,6 +1065,8 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
     document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
     document.body.classList.toggle('simple-gallery-caption-lines-single', this.settings.captionLines === 'single');
+
+    for (const instance of this.galleryInstances) instance.recomputeNow();
   }
 }
 
