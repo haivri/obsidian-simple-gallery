@@ -2,6 +2,11 @@
 
 All notable changes to Simple Gallery will be documented here.
 
+## 1.0.1 - 2026-07-24
+
+- Replaced the mobile-only three-dot menu with a direct photo tap that reveals four compact corner controls.
+- Fixed featured photos occasionally leaving too little Masonry space for the expanded caption editor by observing caption size changes and guarding against rounded row measurements.
+
 ## 1.0.0 - 2026-07-23
 
 - First public release.

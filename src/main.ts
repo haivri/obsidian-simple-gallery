@@ -487,9 +487,8 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
 /**
  * Every per-item control: the "add a section boundary here" buttons (the
  * visual counterpart to hand-typing a "section:" line), a "feature this
- * image" toggle, per-photo caption settings, and a mobile-only "..." icon
- * that toggles the item's expanded/active state. Desktop exposes the panel
- * on hover; mobile exposes the same actions as a labeled touch panel.
+ * image" toggle and per-photo caption settings. Desktop exposes the panel
+ * on hover; mobile reveals the same four corner controls by tapping the photo.
  */
 function renderItemControls(photo: HTMLElement, isFeatured: boolean): void {
   const controls = photo.createDiv({ cls: 'simple-gallery-item-controls' });
@@ -532,14 +531,6 @@ function renderItemControls(photo: HTMLElement, isFeatured: boolean): void {
   settings.draggable = false;
   settings.createSpan({ cls: 'simple-gallery-control-icon', text: 'Aa' });
   settings.createSpan({ cls: 'simple-gallery-control-label', text: 'Caption settings' });
-
-  const menu = photo.createEl('button', {
-    cls: 'simple-gallery-item-menu',
-    text: '⋯',
-    attr: { 'aria-label': 'Show controls for this photo', 'aria-expanded': 'false' }
-  });
-  menu.type = 'button';
-  menu.draggable = false;
 }
 
 function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
@@ -1037,6 +1028,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.grids.forEach((grid) => {
       const sectionIndex = Number(grid.dataset.sectionIndex ?? '0');
       this.observer?.observe(grid);
+      grid.querySelectorAll<HTMLElement>('.simple-gallery-caption')
+        .forEach((caption) => this.observer?.observe(caption));
       grid.querySelectorAll<HTMLImageElement>('img.simple-gallery-img').forEach((img) => {
         if (!img.complete) {
           this.registerDomEvent(img, 'load', () => this.scheduleRecompute(this.grids));
@@ -1048,7 +1041,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
         this.wireSectionInsertButtons(grid, sectionIndex);
         this.wireFeatureToggle(grid, sectionIndex);
         this.wirePhotoSettingsButtons(grid, sectionIndex);
-        this.wireItemMenuToggle(grid);
+        if (document.body.hasClass('is-mobile')) this.wireItemTapToggle(grid);
       }
     });
     this.scheduleRecompute(this.grids);
@@ -1088,9 +1081,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
       });
       this.wireSectionRemoveButtons();
 
-      // Tapping the "..." icon stops propagation before this fires, so this
-      // only ever runs for a click that landed somewhere else -- collapsing
-      // whichever item was expanded, the same way an outside click closes a popover.
+      // Photo taps stop propagation before this fires on mobile. Any click
+      // elsewhere collapses the active photo controls like a popover.
       this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
         const target = evt.target;
         const clickedGallery = target instanceof Node && this.containerEl.contains(target);
@@ -1476,41 +1468,29 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
-  /**
-   * Wires each item's small "..." icon: toggles that item's expanded/active
-   * state, which reveals the same controls hovering would -- the
-   * mobile-friendly path to them, since touch has no hover state at all.
-   * Only one item is ever active at a time; the document-level "click
-   * outside" listener registered in onload() collapses it otherwise.
-   */
-  private wireItemMenuToggle(grid: HTMLElement): void {
-    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item .simple-gallery-item-menu')
-      .forEach((menuButton) => {
-        // Keep the draggable figure and CodeMirror from claiming the initial
-        // press before it can become a button click, especially on touch and
-        // trackpads where a tiny movement is otherwise enough to start a drag.
-        this.registerDomEvent(menuButton, 'pointerdown', (evt: PointerEvent) => {
-          evt.stopImmediatePropagation();
-        }, { capture: true });
+  /** Mobile photo taps directly toggle the four overlaid editing controls. */
+  private wireItemTapToggle(grid: HTMLElement): void {
+    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((item) => {
+      const photo = item.querySelector<HTMLElement>('.simple-gallery-photo');
+      if (!photo) return;
 
-        this.registerDomEvent(menuButton, 'click', (evt: MouseEvent) => {
-          evt.preventDefault();
-          evt.stopImmediatePropagation();
-          const item = menuButton.closest<HTMLElement>('.simple-gallery-item');
-          if (!item) return;
-          const wasActive = item.hasClass('simple-gallery-item-active');
-          this.closeItemControls();
-          if (!wasActive) {
-            this.containerEl.addClass('simple-gallery-selected');
-            item.querySelector<HTMLElement>('.simple-gallery-item-controls')
-              ?.addClass('simple-gallery-item-controls-open');
-            item.addClass('simple-gallery-item-active');
-            menuButton.setAttribute('aria-expanded', 'true');
-            menuButton.setAttribute('aria-label', 'Hide controls for this photo');
-          }
-          this.animateGridResize(grid);
-        }, { capture: true });
+      this.registerDomEvent(photo, 'click', (evt: MouseEvent) => {
+        const target = evt.target;
+        if (target instanceof Element && target.closest('button')) return;
+        evt.preventDefault();
+        evt.stopImmediatePropagation();
+
+        const wasActive = item.hasClass('simple-gallery-item-active');
+        this.closeItemControls();
+        if (!wasActive) {
+          this.containerEl.addClass('simple-gallery-selected');
+          item.querySelector<HTMLElement>('.simple-gallery-item-controls')
+            ?.addClass('simple-gallery-item-controls-open');
+          item.addClass('simple-gallery-item-active');
+        }
+        this.animateGridResize(grid);
       });
+    });
   }
 
   private closeItemControls(): void {
@@ -1521,11 +1501,6 @@ class GalleryRenderChild extends MarkdownRenderChild {
       .forEach((el) => el.removeClass('simple-gallery-item-active'));
     this.containerEl.querySelectorAll('.simple-gallery-item-controls-open')
       .forEach((el) => el.removeClass('simple-gallery-item-controls-open'));
-    this.containerEl.querySelectorAll('.simple-gallery-item-menu')
-      .forEach((el) => {
-        el.setAttribute('aria-expanded', 'false');
-        el.setAttribute('aria-label', 'Show controls for this photo');
-      });
     if (hadActiveItem) this.grids.forEach((grid) => this.animateGridResize(grid));
   }
 
@@ -1612,7 +1587,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
   /** Tracks the caption-row transition so Masonry grows and shrinks with it. */
   private animateGridResize(grid: HTMLElement): void {
-    const endTime = performance.now() + 220;
+    const endTime = performance.now() + 320;
     const alreadyAnimating = this.animatedGridResizes.has(grid);
     this.animatedGridResizes.set(grid, endTime);
     if (alreadyAnimating) return;
@@ -1639,7 +1614,9 @@ class GalleryRenderChild extends MarkdownRenderChild {
     const gap = parseFloat(styles.getPropertyValue('--simple-gallery-gap')) || 0;
 
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((item) => {
-      const height = item.scrollHeight;
+      // One physical pixel protects against scrollHeight's integer rounding,
+      // which is most visible when an expanded caption sits under a featured item.
+      const height = item.scrollHeight + 1;
       if (!height) return; // Not laid out yet; the next resize/frame will retry.
 
       const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));

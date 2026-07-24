@@ -46,8 +46,8 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
   dragging one onto another, edit captions or section names by clicking them, and feature
   any number of photos as bigger visual cells — the note's underlying code block updates
   to match, no manual editing required.
-- Photo controls appear on hover on desktop. On mobile, the ⋯ button opens a labeled action
-  panel so section, sizing, and caption controls remain discoverable without hover.
+- Photo controls appear on hover on desktop. On mobile, tapping a photo reveals four compact
+  corner controls for section boundaries, larger sizing, and per-photo caption settings.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.
@@ -108,9 +108,10 @@ one is independent and the remaining cells reflow around all of them.
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
-On desktop, hovering a photo reveals its controls directly; the ⋯ icon is intentionally
-hidden. On mobile, the ⋯ icon opens a labeled 2×2 action panel, making the same controls
-clear without relying on hover. Tapping elsewhere or opening another photo closes it.
+On desktop, hovering a photo reveals its controls directly. On mobile, tapping a photo
+reveals the same four controls at its corners without an extra menu: section above and
+below at the top, larger sizing at lower left, and caption settings at lower right. Tapping
+elsewhere or opening another photo closes them.
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.

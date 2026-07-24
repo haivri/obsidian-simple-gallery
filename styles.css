@@ -309,8 +309,8 @@ body {
   opacity: 1;
 }
 
-/* The menu click writes this class on the panel itself. Keep it authoritative
- * even when a theme or snippet overrides the hover/ancestor selectors. */
+/* Mobile's direct photo tap writes this class on the panel itself. Keep it
+ * authoritative even when a theme or snippet overrides ancestor selectors. */
 .simple-gallery-item-controls.simple-gallery-item-controls-open {
   opacity: 1 !important;
 }
@@ -360,7 +360,7 @@ body {
 
 /*
  * Feature-toggle ("★") and per-photo caption settings live inside the panel.
- * Desktop reveals them on hover. Mobile uses the separate "..." menu below.
+ * Desktop reveals them on hover. Mobile reveals all four controls on photo tap.
  */
 .simple-gallery-feature-toggle {
   position: absolute;
@@ -457,23 +457,11 @@ body {
   opacity: 1;
 }
 
-/*
- * The persistent menu is intentionally mobile-only. Once opened, the four
- * photo actions become a compact, labeled 2x2 panel instead of relying on
- * desktop-style hover positions whose meaning is hard to discover by touch.
- */
-body.is-mobile .simple-gallery-item-menu {
-  display: flex;
-}
-
 body.is-mobile .simple-gallery-item-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-content: center;
-  gap: 0.45em;
-  padding: 2.5em 0.55em 0.55em;
+  display: block;
+  padding: 0;
   box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.72);
+  background: transparent;
 }
 
 body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-open) {
@@ -485,33 +473,60 @@ body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-o
 }
 
 body.is-mobile .simple-gallery-item-controls > button {
-  position: static;
-  width: auto;
-  min-width: 0;
-  height: auto;
-  min-height: 2.4em;
+  position: absolute;
+  width: 2em;
+  min-width: 2em;
+  height: 2em;
+  min-height: 2em;
   transform: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35em;
-  padding: 0.4em 0.5em;
+  padding: 0;
   color: #fff;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 0.55em;
-  font-size: 0.72em;
-  line-height: 1.15;
-  white-space: normal;
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  font-size: 0.85em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+body.is-mobile .simple-gallery-section-insert-above {
+  inset: 0.4em auto auto 0.4em;
+  font-size: 0;
+}
+
+body.is-mobile .simple-gallery-section-insert-above::before {
+  content: '+↑';
+  font-size: 0.85rem;
+}
+
+body.is-mobile .simple-gallery-section-insert-below {
+  inset: 0.4em 0.4em auto auto;
+  font-size: 0;
+}
+
+body.is-mobile .simple-gallery-section-insert-below::before {
+  content: '+↓';
+  font-size: 0.85rem;
+}
+
+body.is-mobile .simple-gallery-feature-toggle {
+  inset: auto auto 0.4em 0.4em;
+}
+
+body.is-mobile .simple-gallery-photo-settings {
+  inset: auto 0.4em 0.4em auto;
+}
+
+body.is-mobile .simple-gallery-item-controls > .simple-gallery-feature-toggle-on {
+  background: var(--interactive-accent);
 }
 
 body.is-mobile .simple-gallery-item-controls > button:hover,
 body.is-mobile .simple-gallery-item-controls > button:active {
   background: var(--interactive-accent);
-}
-
-body.is-mobile .simple-gallery-control-label {
-  display: inline;
 }
 
 .simple-gallery-hide-captions .simple-gallery-caption {

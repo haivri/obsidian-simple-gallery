@@ -1,6 +1,6 @@
 {
   "name": "simple-gallery",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Turn a simple, YAML-inspired list of image embeds into a responsive photo grid.",
   "main": "main.js",
   "scripts": {

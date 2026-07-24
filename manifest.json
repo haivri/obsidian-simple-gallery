@@ -1,7 +1,7 @@
 {
   "id": "simple-gallery",
   "name": "Simple Gallery",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.5.0",
   "description": "Turn a simple, YAML-inspired list of image embeds into a responsive photo grid.",
   "author": "Robert Fleming",
