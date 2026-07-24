@@ -988,6 +988,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
   private readonly animatedGridResizes = new Map<HTMLElement, number>();
   private initializationFrame: number | null = null;
   private suppressPhotoClicksUntil = 0;
+  private releasePhotoClickUntil = 0;
 
   private draggedSectionIndex = -1;
   private draggedItemIndex = -1;
@@ -1489,20 +1490,18 @@ class GalleryRenderChild extends MarkdownRenderChild {
       const isControl = (target: EventTarget | null): boolean =>
         target instanceof Element && target.closest('button') !== null;
 
-      const toggleControls = (): void => {
-        const wasActive = item.hasClass('simple-gallery-item-active');
+      const openControls = (): void => {
         this.closeItemControls();
-        if (!wasActive) {
-          this.containerEl.addClass('simple-gallery-selected');
-          item.querySelector<HTMLElement>('.simple-gallery-item-controls')
-            ?.addClass('simple-gallery-item-controls-open');
-          item.addClass('simple-gallery-item-active');
-        }
+        this.containerEl.addClass('simple-gallery-selected');
+        item.querySelector<HTMLElement>('.simple-gallery-item-controls')
+          ?.addClass('simple-gallery-item-controls-open');
+        item.addClass('simple-gallery-item-active');
         this.animateGridResize(grid);
       };
 
       this.registerDomEvent(photo, 'pointerdown', (evt: PointerEvent) => {
         if (isControl(evt.target) || evt.button !== 0) return;
+        this.releasePhotoClickUntil = 0;
         pointerStart = { id: evt.pointerId, x: evt.clientX, y: evt.clientY };
       }, { capture: true });
 
@@ -1520,10 +1519,20 @@ class GalleryRenderChild extends MarkdownRenderChild {
       this.registerDomEvent(photo, 'pointerup', (evt: PointerEvent) => {
         if (isControl(evt.target) || !pointerStart || pointerStart.id !== evt.pointerId) return;
         pointerStart = null;
+
+        if (item.hasClass('simple-gallery-item-active')) {
+          // The second tap exits edit controls, then releases its compatibility
+          // click so a lightbox/fullscreen-image plugin can open the photo.
+          this.closeItemControls();
+          this.animateGridResize(grid);
+          this.releasePhotoClickUntil = performance.now() + MOBILE_COMPATIBILITY_CLICK_MS;
+          return;
+        }
+
         evt.preventDefault();
         evt.stopImmediatePropagation();
         this.suppressPhotoClicksUntil = performance.now() + MOBILE_COMPATIBILITY_CLICK_MS;
-        toggleControls();
+        openControls();
       }, { capture: true });
 
       // Keyboard activation and browsers without Pointer Events still receive
@@ -1532,9 +1541,18 @@ class GalleryRenderChild extends MarkdownRenderChild {
       this.registerDomEvent(photo, 'click', (evt: MouseEvent) => {
         const target = evt.target;
         if (isControl(target)) return;
+        if (performance.now() < this.releasePhotoClickUntil) {
+          this.releasePhotoClickUntil = 0;
+          return;
+        }
+        if (item.hasClass('simple-gallery-item-active')) {
+          this.closeItemControls();
+          this.animateGridResize(grid);
+          return;
+        }
         evt.preventDefault();
         evt.stopImmediatePropagation();
-        if (performance.now() >= this.suppressPhotoClicksUntil) toggleControls();
+        if (performance.now() >= this.suppressPhotoClicksUntil) openControls();
       }, { capture: true });
     });
   }

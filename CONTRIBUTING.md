@@ -53,8 +53,9 @@ Before submitting a change:
     there in the same gesture. Confirm an empty caption
     expands far enough beneath both normal and featured photos without overlapping the next
     row. Confirm the mobile controls retain the desktop arrangement and their labels remain
-    bounded by their buttons. On desktop, confirm the controls appear on hover. Confirm all
-    controls are stripped in Reading Mode.
+    bounded by their buttons. With Fullscreen Image installed, a second tap on the active
+    photo should close its controls and open the viewer. On desktop, confirm the controls
+    appear on hover. Confirm all controls are stripped in Reading Mode.
 17. **Important**: after rebuilding (`npm run build`), Obsidian does not hot-reload the
     plugin automatically — reload the app, or disable/re-enable Simple Gallery under
     Community Plugins, before testing, or you'll be looking at stale behavior.

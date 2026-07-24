@@ -2,6 +2,10 @@
 
 All notable changes to Simple Gallery will be documented here.
 
+## 1.0.3 - 2026-07-24
+
+- Made a second mobile tap hide the photo controls and pass through to compatible fullscreen/lightbox plugins in Live Preview.
+
 ## 1.0.2 - 2026-07-24
 
 - Made the first completed mobile tap reveal photo controls even when Obsidian uses that gesture to select the Live Preview block.

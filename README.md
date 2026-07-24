@@ -111,7 +111,9 @@ caption unless a photo actually has one, no buttons, nothing but the gallery its
 On desktop, hovering a photo reveals its controls directly. On mobile, the first tap on a
 photo reveals the same layout without an extra menu: section above and below form the
 center column, with larger sizing at lower left and caption settings at lower right. Tapping
-elsewhere closes them; tapping another photo moves the controls there immediately.
+elsewhere closes them; tapping another photo moves the controls there immediately. A second
+tap on the active photo closes its controls and leaves the tap available to an installed
+fullscreen or lightbox plugin.
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.
