@@ -48,11 +48,13 @@ Before submitting a change:
 15. Test the ★ larger-photo toggle on several photos in the same section. Confirm every
     starred photo gets a bigger cell in Masonry and Grid, all remain larger in Reading Mode,
     and the remaining photos reflow without overlap.
-16. On mobile, tap a photo and confirm its four compact corner controls appear without
-    hover; tapping elsewhere or another photo should close them. Confirm an empty caption
+16. On mobile, tap a photo and confirm its four controls appear on the first tap without
+    hover; tapping elsewhere should close them, and tapping another photo should move them
+    there in the same gesture. Confirm an empty caption
     expands far enough beneath both normal and featured photos without overlapping the next
-    row. On desktop, confirm the same controls appear on hover. Confirm all controls are
-    stripped in Reading Mode.
+    row. Confirm the mobile controls retain the desktop arrangement and their labels remain
+    bounded by their buttons. On desktop, confirm the controls appear on hover. Confirm all
+    controls are stripped in Reading Mode.
 17. **Important**: after rebuilding (`npm run build`), Obsidian does not hot-reload the
     plugin automatically — reload the app, or disable/re-enable Simple Gallery under
     Community Plugins, before testing, or you'll be looking at stale behavior.

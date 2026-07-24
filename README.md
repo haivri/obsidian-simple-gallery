@@ -108,10 +108,10 @@ one is independent and the remaining cells reflow around all of them.
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
-On desktop, hovering a photo reveals its controls directly. On mobile, tapping a photo
-reveals the same four controls at its corners without an extra menu: section above and
-below at the top, larger sizing at lower left, and caption settings at lower right. Tapping
-elsewhere or opening another photo closes them.
+On desktop, hovering a photo reveals its controls directly. On mobile, the first tap on a
+photo reveals the same layout without an extra menu: section above and below form the
+center column, with larger sizing at lower left and caption settings at lower right. Tapping
+elsewhere closes them; tapping another photo moves the controls there immediately.
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.

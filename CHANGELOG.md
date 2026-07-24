@@ -2,6 +2,13 @@
 
 All notable changes to Simple Gallery will be documented here.
 
+## 1.0.2 - 2026-07-24
+
+- Made the first completed mobile tap reveal photo controls even when Obsidian uses that gesture to select the Live Preview block.
+- Made switching between photos close the previous controls immediately and open the newly tapped photo in the same gesture.
+- Restored the desktop control arrangement on mobile with larger, properly bounded buttons.
+- Increased caption padding and added extra caption-editor clearance beneath featured photos.
+
 ## 1.0.1 - 2026-07-24
 
 - Replaced the mobile-only three-dot menu with a direct photo tap that reveals four compact corner controls.

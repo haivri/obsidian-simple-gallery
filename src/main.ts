@@ -47,6 +47,9 @@ const DEFAULT_SETTINGS: SimpleGallerySettings = {
   captionAlign: 'center'
 };
 
+const MOBILE_TAP_MOVE_THRESHOLD = 8;
+const MOBILE_COMPATIBILITY_CLICK_MS = 600;
+
 // ---------------------------------------------------------------------------
 // Parsing: a small tolerant line-scanner, deliberately not a YAML parser.
 //
@@ -984,6 +987,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
   private scheduled = false;
   private readonly animatedGridResizes = new Map<HTMLElement, number>();
   private initializationFrame: number | null = null;
+  private suppressPhotoClicksUntil = 0;
 
   private draggedSectionIndex = -1;
   private draggedItemIndex = -1;
@@ -1468,18 +1472,24 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
-  /** Mobile photo taps directly toggle the four overlaid editing controls. */
+  /**
+   * Mobile photo taps directly toggle the four overlaid editing controls.
+   * Pointer-up capture is deliberate: Obsidian may consume the first synthetic
+   * click to select a Live Preview block, but it cannot swallow the completed
+   * touch gesture that reached this photo. Movement beyond a small threshold
+   * remains a scroll/drag and does not open the controls.
+   */
   private wireItemTapToggle(grid: HTMLElement): void {
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((item) => {
       const photo = item.querySelector<HTMLElement>('.simple-gallery-photo');
       if (!photo) return;
 
-      this.registerDomEvent(photo, 'click', (evt: MouseEvent) => {
-        const target = evt.target;
-        if (target instanceof Element && target.closest('button')) return;
-        evt.preventDefault();
-        evt.stopImmediatePropagation();
+      let pointerStart: { id: number; x: number; y: number } | null = null;
 
+      const isControl = (target: EventTarget | null): boolean =>
+        target instanceof Element && target.closest('button') !== null;
+
+      const toggleControls = (): void => {
         const wasActive = item.hasClass('simple-gallery-item-active');
         this.closeItemControls();
         if (!wasActive) {
@@ -1489,7 +1499,43 @@ class GalleryRenderChild extends MarkdownRenderChild {
           item.addClass('simple-gallery-item-active');
         }
         this.animateGridResize(grid);
-      });
+      };
+
+      this.registerDomEvent(photo, 'pointerdown', (evt: PointerEvent) => {
+        if (isControl(evt.target) || evt.button !== 0) return;
+        pointerStart = { id: evt.pointerId, x: evt.clientX, y: evt.clientY };
+      }, { capture: true });
+
+      this.registerDomEvent(photo, 'pointermove', (evt: PointerEvent) => {
+        if (!pointerStart || pointerStart.id !== evt.pointerId) return;
+        if (Math.hypot(evt.clientX - pointerStart.x, evt.clientY - pointerStart.y) > MOBILE_TAP_MOVE_THRESHOLD) {
+          pointerStart = null;
+        }
+      }, { capture: true });
+
+      this.registerDomEvent(photo, 'pointercancel', () => {
+        pointerStart = null;
+      }, { capture: true });
+
+      this.registerDomEvent(photo, 'pointerup', (evt: PointerEvent) => {
+        if (isControl(evt.target) || !pointerStart || pointerStart.id !== evt.pointerId) return;
+        pointerStart = null;
+        evt.preventDefault();
+        evt.stopImmediatePropagation();
+        this.suppressPhotoClicksUntil = performance.now() + MOBILE_COMPATIBILITY_CLICK_MS;
+        toggleControls();
+      }, { capture: true });
+
+      // Keyboard activation and browsers without Pointer Events still receive
+      // a click fallback. A compatibility click following pointer-up is only
+      // suppressed, never allowed to toggle the item a second time.
+      this.registerDomEvent(photo, 'click', (evt: MouseEvent) => {
+        const target = evt.target;
+        if (isControl(target)) return;
+        evt.preventDefault();
+        evt.stopImmediatePropagation();
+        if (performance.now() >= this.suppressPhotoClicksUntil) toggleControls();
+      }, { capture: true });
     });
   }
 
@@ -1614,9 +1660,13 @@ class GalleryRenderChild extends MarkdownRenderChild {
     const gap = parseFloat(styles.getPropertyValue('--simple-gallery-gap')) || 0;
 
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((item) => {
-      // One physical pixel protects against scrollHeight's integer rounding,
-      // which is most visible when an expanded caption sits under a featured item.
-      const height = item.scrollHeight + 1;
+      // One physical pixel protects against scrollHeight's integer rounding.
+      // An expanded featured item gets a full row-unit of safety because its
+      // two-column span makes a shortfall particularly visible below it.
+      const isExpandedFeatured = document.body.hasClass('is-mobile')
+        && item.hasClass('simple-gallery-item-featured')
+        && item.hasClass('simple-gallery-item-active');
+      const height = item.scrollHeight + (isExpandedFeatured ? rowUnit : 1);
       if (!height) return; // Not laid out yet; the next resize/frame will retry.
 
       const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
