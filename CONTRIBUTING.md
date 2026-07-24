@@ -42,6 +42,18 @@ Before submitting a change:
     (every control should show the current global default), change only one control and
     save (only that field should be written), and change nothing at all and save (no
     override lines should appear). Test Cancel discards changes.
+15. Test the ★ feature toggle: feature a photo, confirm it gets the bigger cell in both
+    Masonry and Grid layout, confirm it still shows in Reading Mode, then feature a
+    different photo in the same section and confirm the first one is un-featured. Confirm
+    a featured photo in one section doesn't affect another section.
+16. Test the per-item "⋯" icon: tapping it should reveal that photo's controls (caption,
+    section-insert, feature toggle) without needing to hover; tapping elsewhere, or another
+    photo's icon, should close it again. Confirm this icon (unlike the others) is visible
+    even without hovering, and confirm it's stripped along with everything else in Reading
+    Mode.
+17. **Important**: after rebuilding (`npm run build`), Obsidian does not hot-reload the
+    plugin automatically — reload the app, or disable/re-enable Simple Gallery under
+    Community Plugins, before testing, or you'll be looking at stale behavior.
 
 Keep the plugin simple and local-first. New functionality must not transmit vault content
 without explicit user action and clear documentation. Do not include vault content or

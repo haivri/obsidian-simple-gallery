@@ -53,6 +53,8 @@ export interface GalleryItem {
   /** Bracket-stripped linkpath to resolve. */
   linkpath: string;
   caption?: string;
+  /** Only ever true when set; never explicitly false. At most one per section. */
+  featured?: true;
 }
 
 export interface GallerySection {
@@ -77,6 +79,7 @@ export interface GalleryBlock {
 const ITEM_LINE = /^-\s+(.+?)\s*$/;
 const SECTION_LINE = /^section:\s*(.*)$/i;
 const CAPTION_LINE = /^caption:\s*(.*)$/i;
+const FEATURED_LINE = /^featured:\s*true\s*$/i;
 const NOTE_LINE = /^note:\s*(.*)$/i;
 const LAYOUT_LINE = /^layout:\s*(masonry|grid)\s*$/i;
 const MIN_SIZE_LINE = /^min-size:\s*(\d+)\s*$/i;
@@ -181,14 +184,20 @@ export function parseGalleryBlock(source: string): GalleryBlock {
     }
 
     if (lastKind === 'item') {
+      const items = ensureImplicitSection().items;
+      const item = items[items.length - 1];
+
       const captionMatch = CAPTION_LINE.exec(trimmed);
       if (captionMatch) {
-        const items = ensureImplicitSection().items;
-        const item = items[items.length - 1];
-        if (item && item.caption === undefined) {
-          item.caption = captionMatch[1].trim();
-        }
+        if (item && item.caption === undefined) item.caption = captionMatch[1].trim();
+        continue;
       }
+
+      if (FEATURED_LINE.test(trimmed)) {
+        if (item && item.featured === undefined) item.featured = true;
+        continue;
+      }
+
       continue;
     }
 
@@ -240,6 +249,7 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
     for (const item of section.items) {
       body.push(`- ${item.raw}`);
       if (item.caption) body.push(`  caption: ${item.caption}`);
+      if (item.featured) body.push('  featured: true');
     }
   }
 
@@ -351,6 +361,8 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
   }
 
   const figure = grid.createEl('figure', { cls: 'simple-gallery-item' });
+  if (item.featured) figure.addClass('simple-gallery-item-featured');
+
   const img = figure.createEl('img', { cls: 'simple-gallery-img' });
   img.src = src;
   img.loading = 'lazy';
@@ -363,14 +375,19 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
     caption.setText('+ add caption');
   }
 
-  renderSectionInsertButtons(figure);
+  renderItemControls(figure, item.featured === true);
 }
 
 /**
- * Small "add a section boundary here" buttons, revealed on hover over an
- * item -- the visual counterpart to hand-typing a "section:" line.
+ * Every per-item control: the "add a section boundary here" buttons (the
+ * visual counterpart to hand-typing a "section:" line), a "feature this
+ * image" toggle, and a small always-visible "..." icon that toggles the
+ * item's expanded/active state -- the mobile-friendly alternative to
+ * hovering, since touch devices have no hover state at all. Hovering (on
+ * desktop) or tapping the "..." icon both reveal the same controls; the
+ * icon just makes them reachable without a mouse.
  */
-function renderSectionInsertButtons(item: HTMLElement): void {
+function renderItemControls(item: HTMLElement, isFeatured: boolean): void {
   const above = item.createEl('button', {
     cls: 'simple-gallery-section-insert simple-gallery-section-insert-above',
     text: '+ section above'
@@ -384,13 +401,33 @@ function renderSectionInsertButtons(item: HTMLElement): void {
   });
   below.type = 'button';
   below.draggable = false;
+
+  const featureCls = isFeatured
+    ? 'simple-gallery-feature-toggle simple-gallery-feature-toggle-on'
+    : 'simple-gallery-feature-toggle';
+  const feature = item.createEl('button', {
+    cls: featureCls,
+    text: '★',
+    attr: { 'aria-label': isFeatured ? 'Remove as featured image' : 'Feature this image' }
+  });
+  feature.type = 'button';
+  feature.draggable = false;
+
+  const menu = item.createEl('button', {
+    cls: 'simple-gallery-item-menu',
+    text: '⋯',
+    attr: { 'aria-label': 'Show controls for this photo' }
+  });
+  menu.type = 'button';
+  menu.draggable = false;
 }
 
 function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
   const broken = grid.createDiv({ cls: 'simple-gallery-item simple-gallery-broken' });
+  if (item.featured) broken.addClass('simple-gallery-item-featured');
   broken.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
   broken.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
-  renderSectionInsertButtons(broken);
+  renderItemControls(broken, item.featured === true);
 }
 
 // ---------------------------------------------------------------------------
@@ -669,6 +706,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
         this.wireDragAndDrop(grid, sectionIndex);
         this.wireCaptionEditing(grid, sectionIndex);
         this.wireSectionInsertButtons(grid, sectionIndex);
+        this.wireFeatureToggle(grid, sectionIndex);
+        this.wireItemMenuToggle(grid);
       }
     });
     this.scheduleRecompute(this.grids);
@@ -689,6 +728,14 @@ class GalleryRenderChild extends MarkdownRenderChild {
         const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
         this.wireSectionTitleEditing(titleEl, sectionIndex);
       });
+
+      // Tapping the "..." icon stops propagation before this fires, so this
+      // only ever runs for a click that landed somewhere else -- collapsing
+      // whichever item was expanded, the same way an outside click closes a popover.
+      this.registerDomEvent(document, 'click', () => {
+        this.containerEl.querySelectorAll('.simple-gallery-item-active')
+          .forEach((el) => el.removeClass('simple-gallery-item-active'));
+      });
     }
   }
 
@@ -698,6 +745,10 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.containerEl.querySelector(':scope > .simple-gallery-settings-button')?.remove();
     this.containerEl.querySelectorAll('.simple-gallery-caption-empty').forEach((el) => el.remove());
     this.containerEl.querySelectorAll('.simple-gallery-section-insert').forEach((el) => el.remove());
+    this.containerEl.querySelectorAll('.simple-gallery-feature-toggle').forEach((el) => el.remove());
+    this.containerEl.querySelectorAll('.simple-gallery-item-menu').forEach((el) => el.remove());
+    // The 2x2 sizing itself (.simple-gallery-item-featured) is a visual part of
+    // the gallery's content, not an editing affordance -- it stays in Reading Mode.
   }
 
   /**
@@ -857,7 +908,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
   private wireCaptionEditing(grid: HTMLElement, sectionIndex: number): void {
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item > .simple-gallery-caption')
       .forEach((captionEl, itemIndex) => {
-        this.registerDomEvent(captionEl, 'click', () => {
+        this.registerDomEvent(captionEl, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
           const isPlaceholder = captionEl.hasClass('simple-gallery-caption-empty');
           this.makeEditable(captionEl, isPlaceholder ? '' : captionEl.getText(), 'Add a caption…', (value) => {
             void this.commitCaptionChange(sectionIndex, itemIndex, value);
@@ -886,6 +938,58 @@ class GalleryRenderChild extends MarkdownRenderChild {
         });
       }
     });
+  }
+
+  /** Wires each item's "★" button, which marks it as the section's one featured image. */
+  private wireFeatureToggle(grid: HTMLElement, sectionIndex: number): void {
+    const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
+    items.forEach((itemEl, itemIndex) => {
+      const button = itemEl.querySelector<HTMLElement>('.simple-gallery-feature-toggle');
+      if (!button) return;
+      this.registerDomEvent(button, 'click', (evt: MouseEvent) => {
+        evt.stopPropagation();
+        void this.commitFeatureToggle(sectionIndex, itemIndex);
+      });
+    });
+  }
+
+  /**
+   * Wires each item's small "..." icon: toggles that item's expanded/active
+   * state, which reveals the same controls hovering would -- the
+   * mobile-friendly path to them, since touch has no hover state at all.
+   * Only one item is ever active at a time; the document-level "click
+   * outside" listener registered in onload() collapses it otherwise.
+   */
+  private wireItemMenuToggle(grid: HTMLElement): void {
+    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item > .simple-gallery-item-menu')
+      .forEach((menuButton) => {
+        this.registerDomEvent(menuButton, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
+          const item = menuButton.parentElement;
+          if (!item) return;
+          const wasActive = item.hasClass('simple-gallery-item-active');
+          this.containerEl.querySelectorAll('.simple-gallery-item-active')
+            .forEach((el) => el.removeClass('simple-gallery-item-active'));
+          if (!wasActive) item.addClass('simple-gallery-item-active');
+        });
+      });
+  }
+
+  /**
+   * Marks this item as the section's featured image (2x-sized, everything
+   * else flows around it), clearing any previously-featured item in the
+   * same section -- at most one per section.
+   */
+  private async commitFeatureToggle(sectionIndex: number, itemIndex: number): Promise<void> {
+    const section = this.block.sections[sectionIndex];
+    const item = section?.items[itemIndex];
+    if (!section || !item) return;
+
+    const wasFeatured = item.featured === true;
+    for (const other of section.items) other.featured = undefined;
+    if (!wasFeatured) item.featured = true;
+
+    await this.writeBlockToFile();
   }
 
   private wireSectionTitleEditing(titleEl: HTMLElement, sectionIndex: number): void {

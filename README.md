@@ -65,14 +65,18 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
 - A **Convert selection to gallery** command turns existing images already in a note —
   bulleted or not, selected or not — straight into a gallery block. An **Insert empty
   gallery block** command starts one from scratch.
-- Reorder photos by clicking and dragging a thumbnail, and edit captions or section names
-  by clicking them directly in the rendered gallery — the note's underlying code block
-  updates to match, no manual editing required.
+- Reorder photos by clicking and dragging a thumbnail, edit captions or section names by
+  clicking them, and feature one photo per section as a bigger visual focus — the note's
+  underlying code block updates to match, no manual editing required.
+- Every photo's controls are reachable by hover (desktop) or by tapping the small, always-
+  visible "⋯" icon in its corner — no feature is hover-only, so everything works on touch
+  devices too.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.
-- Optional per-image captions, optional `section:` groupings, and an optional intro
-  blurb — all opt-in; a plain list of images works with none of them.
+- Optional per-image captions, an optional featured photo per section, optional `section:`
+  groupings, and an optional intro blurb — all opt-in; a plain list of images works with
+  none of them.
 - Default **Masonry** layout sizes each thumbnail from its own photo's natural
   proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
   clean, uniform tiles instead. Every setting — layout, thumbnail size, gap, captions —
@@ -106,29 +110,57 @@ block. Or skip typing it out entirely — see **Commands** below.
 Add an optional caption on the line directly below an item, indented and prefixed with
 `caption:`. Captions are entirely optional — leave them off any item you don't want one for.
 
+### Featuring one photo
+
+Mark one photo per section as the visual focus with an indented `featured: true` line —
+same shape as `caption:`, and an item can have both:
+
+    ```simple-gallery
+    - ![[brussels-1.jpg]]
+      caption: Halved and tossed with oil, salt, and pepper
+      featured: true
+    - ![[brussels-2.jpg]]
+    ```
+
+The featured photo gets a bigger cell (roughly 2×2) and everything else in that section
+flows around it — masonry or grid alike. At most one per section; marking a second photo
+featured un-marks the first. Unlike captions and sections, this is easiest to set with the
+★ button described below rather than by hand, since it also handles clearing the previous
+one for you.
+
 ### Editing directly in the gallery
 
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
+Every photo's controls are reachable two ways: hovering it (nice on desktop), or tapping
+the small "⋯" icon in its corner, which stays faintly visible at all times — since touch
+devices have no hover state at all, that icon is what makes everything below reachable on
+a phone or tablet. Tapping it "pins" that photo's controls open; tapping elsewhere (or
+another photo's icon) closes it again.
+
 - **Reorder** — Click and drag any thumbnail to a new position. Dragging is scoped to one
   section (or the whole gallery, if it has no sections) at a time; dragging an item into a
   different section isn't supported.
-- **Edit a caption** — Hover a photo and its caption area reveals a "+ add caption"
-  placeholder (or the existing caption, always visible if it has one); click either to edit
-  in place. Press Enter or click elsewhere to save, Escape to cancel. Clearing the text
-  removes the caption.
+- **Edit a caption** — A photo's caption area reveals a "+ add caption" placeholder (or the
+  existing caption, always visible if it has one); click either to edit in place. Press
+  Enter or click elsewhere to save, Escape to cancel. Clearing the text removes the caption.
 - **Rename a section** — Click a section's name to edit it the same way. An empty name is
   ignored rather than saved, so you can't accidentally blank one out.
-- **Add a section** — Hover a photo to reveal small "+ section above" / "+ section below"
+- **Add a section** — A photo's corner reveals small "+ section above" / "+ section below"
   buttons; click one to split its section into two right there, with a "New section" label
   ready to rename. Splitting at the very first or last photo of a section creates an empty
   section on that side rather than being disabled — a rare, harmless edge case.
-- **Gallery settings** — Hover the gallery and a gear button appears in the corner. It opens
-  the same Layout / thumbnail size / gap / captions / caption font / caption length
-  controls as the main Settings tab, scoped to just this gallery. A control left matching
-  the current global default doesn't get written as an override, so a gallery you haven't
-  customized stays clean either way.
+- **Feature a photo** — The "★" button on a photo marks it as that section's one featured
+  image: a bigger cell (roughly 2×2) that the rest of the section's photos flow around,
+  masonry or grid alike. Featuring a different photo un-features the previous one — there's
+  only ever one per section. Unlike the other controls, the bigger cell itself shows in
+  Reading Mode too — it's a visual part of the gallery, not an editing affordance.
+- **Gallery settings** — Hover the gallery (or tap the gear icon, which also stays faintly
+  visible) to open the same Layout / thumbnail size / gap / captions / caption font /
+  caption length controls as the main Settings tab, scoped to just this gallery. A control
+  left matching the current global default doesn't get written as an override, so a gallery
+  you haven't customized stays clean either way.
 
 Every one of these rewrites just the affected part of the gallery's code block and leaves
 everything else — other galleries, the rest of the note — untouched.

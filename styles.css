@@ -28,7 +28,13 @@ body {
   margin: 0.8em 0;
 }
 
-/* Gear button (Live Preview only): opens GallerySettingsModal, revealed on hover over the whole gallery. */
+/*
+ * Gear button (Live Preview only): opens GallerySettingsModal. Stays
+ * faintly visible always, not just on hover -- touch devices have no hover
+ * state at all, so a hover-only control would be permanently undiscoverable
+ * on mobile. Brightens on hover for a nice desktop touch, but is reachable
+ * without one.
+ */
 .simple-gallery-settings-button {
   position: absolute;
   top: 0;
@@ -44,7 +50,7 @@ body {
   background: var(--background-secondary);
   border: 1px solid var(--simple-gallery-border);
   border-radius: 999px;
-  opacity: 0;
+  opacity: 0.45;
   cursor: pointer;
   transition: opacity 120ms ease-out, color 120ms ease-out;
 }
@@ -87,8 +93,23 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--simple-gallery-min-size), 1fr));
   grid-auto-rows: var(--simple-gallery-row-unit);
+  grid-auto-flow: dense;
   align-items: start;
   gap: var(--simple-gallery-gap);
+}
+
+/*
+ * The one featured image per section (see "featured: true" in the README):
+ * spans 2 columns. In Masonry, that's all it needs -- the item's own
+ * row-span is measured from its actual rendered scrollHeight (recomputeGrid
+ * in main.ts), so a photo that's twice as wide naturally comes out roughly
+ * twice as tall too, with no special-casing required. In uniform Grid mode,
+ * row height isn't content-measured, so it also needs an explicit row span
+ * (below) or its increased height (from a fixed aspect-ratio at 2x the
+ * width) would inflate every other item sharing its row.
+ */
+.simple-gallery-item-featured {
+  grid-column: span 2;
 }
 
 .simple-gallery-item {
@@ -152,7 +173,8 @@ body {
   transition: transform 160ms ease-out, opacity 160ms ease-out;
 }
 
-.simple-gallery-item:hover .simple-gallery-caption-empty {
+.simple-gallery-item:hover .simple-gallery-caption-empty,
+.simple-gallery-item-active .simple-gallery-caption-empty {
   transform: translateY(0);
   opacity: 1;
 }
@@ -224,7 +246,8 @@ body {
   transition: opacity 120ms ease-out;
 }
 
-.simple-gallery-item:hover .simple-gallery-section-insert {
+.simple-gallery-item:hover .simple-gallery-section-insert,
+.simple-gallery-item-active .simple-gallery-section-insert {
   opacity: 0.85;
 }
 
@@ -240,6 +263,87 @@ body {
   bottom: 0.4em;
 }
 
+/*
+ * Feature-toggle ("★", top-right of each photo) and the small "..." menu
+ * icon (bottom-right) that reveals a photo's controls without needing
+ * hover -- the mobile-friendly path, since touch devices have no hover
+ * state. The menu icon stays faintly visible always, for discoverability;
+ * everything else it reveals follows the same hover/active rule as the
+ * section-insert buttons above.
+ */
+.simple-gallery-feature-toggle {
+  position: absolute;
+  top: 0.4em;
+  right: 0.4em;
+  z-index: 2;
+  width: 1.7em;
+  height: 1.7em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.75em;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 999px;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease-out, background 120ms ease-out;
+}
+
+.simple-gallery-item:hover .simple-gallery-feature-toggle,
+.simple-gallery-item-active .simple-gallery-feature-toggle {
+  opacity: 0.85;
+}
+
+.simple-gallery-feature-toggle:hover {
+  opacity: 1;
+}
+
+.simple-gallery-feature-toggle-on {
+  color: #fff;
+  background: var(--interactive-accent);
+  opacity: 0.95;
+}
+
+.simple-gallery-item:hover .simple-gallery-feature-toggle-on,
+.simple-gallery-item-active .simple-gallery-feature-toggle-on {
+  opacity: 1;
+}
+
+.simple-gallery-item-menu {
+  position: absolute;
+  bottom: 0.4em;
+  right: 0.4em;
+  z-index: 2;
+  width: 1.7em;
+  height: 1.7em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 999px;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 120ms ease-out;
+}
+
+.simple-gallery-item:hover .simple-gallery-item-menu,
+.simple-gallery-item-active .simple-gallery-item-menu {
+  opacity: 0.9;
+}
+
+.simple-gallery-item-menu:hover {
+  opacity: 1;
+}
+
 .simple-gallery-hide-captions .simple-gallery-caption {
   display: none;
 }
@@ -252,6 +356,10 @@ body.simple-gallery-layout-grid .simple-gallery-grid {
 
 body.simple-gallery-layout-grid .simple-gallery-item {
   grid-row-end: auto;
+}
+
+body.simple-gallery-layout-grid .simple-gallery-item-featured {
+  grid-row: span 2;
 }
 
 body.simple-gallery-layout-grid .simple-gallery-img {
@@ -290,6 +398,10 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 
 .simple-gallery-root.simple-gallery-force-grid .simple-gallery-item {
   grid-row-end: auto;
+}
+
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-item-featured {
+  grid-row: span 2;
 }
 
 .simple-gallery-root.simple-gallery-force-grid .simple-gallery-img {
