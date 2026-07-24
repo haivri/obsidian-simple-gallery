@@ -353,7 +353,10 @@ reorder, click-to-edit, what belongs in Reading Mode versus Live Preview — and
 against a real recipe note along the way. The implementation, architecture, and
 documentation were written by Claude (Sonnet 5, Anthropic) in close collaboration with
 him. Robert wanted this credited plainly, and gladly: this plugin exists because of that
-collaboration, and he's grateful for it.
+collaboration, and he's grateful for it. The subsequent release-preparation work and
+expanded Live Preview editing experience were developed with OpenAI Codex, including
+section boundaries, multi-photo featuring, per-photo caption controls, mobile action
+controls, and gallery removal.
 
 ## License
 
