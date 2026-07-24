@@ -1,5 +1,7 @@
 import {
   App,
+  Editor,
+  EditorPosition,
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
   Plugin,
@@ -153,10 +155,14 @@ function basename(linkpath: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Resolution: the same mechanism Obsidian uses internally for embeds.
+// Resolution: the same mechanism Obsidian uses internally for embeds, plus a
+// passthrough for remote images (from a pasted Markdown image link).
 // ---------------------------------------------------------------------------
 
+const REMOTE_URL = /^https?:\/\//i;
+
 function resolveGalleryImageSrc(app: App, linkpath: string, sourcePath: string): string | null {
+  if (REMOTE_URL.test(linkpath)) return linkpath;
   const file = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
   if (!file) return null;
   return app.vault.getResourcePath(file);
@@ -217,6 +223,84 @@ function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
   broken.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
   broken.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
 }
+
+// ---------------------------------------------------------------------------
+// Command support: turn existing image references already sitting in a note
+// (dropped-in image embeds, with or without list bullets, or a standard
+// Markdown image link) into a simple-gallery block.
+// ---------------------------------------------------------------------------
+
+const IMAGE_EXTENSIONS = new Set(['avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'svg', 'webp']);
+
+function hasImageExtension(linkpath: string): boolean {
+  const dot = linkpath.lastIndexOf('.');
+  if (dot === -1) return false;
+  return IMAGE_EXTENSIONS.has(linkpath.slice(dot + 1).toLowerCase());
+}
+
+// Matches an embed wikilink (kept only if its extension looks like an image,
+// since ![[...]] can embed any file type) or a standard Markdown image link
+// (kept unconditionally, since ![]() is by definition always an image).
+const REFERENCE_PATTERN = /!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]|!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+
+/** Extracts image references from arbitrary note text, normalized to `![[linkpath]]` form. */
+export function extractImageReferences(text: string): string[] {
+  const results: string[] = [];
+  REFERENCE_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = REFERENCE_PATTERN.exec(text))) {
+    const wikilinkPath = match[1];
+    if (wikilinkPath !== undefined) {
+      const linkpath = wikilinkPath.trim();
+      if (hasImageExtension(linkpath)) results.push(`![[${linkpath}]]`);
+      continue;
+    }
+
+    const markdownPath = match[2];
+    if (markdownPath !== undefined) {
+      let linkpath = markdownPath.trim();
+      try {
+        linkpath = decodeURIComponent(linkpath);
+      } catch {
+        // Wasn't validly percent-encoded; use it as written.
+      }
+      results.push(`![[${linkpath}]]`);
+    }
+  }
+  return results;
+}
+
+export function buildGalleryBlockText(references: string[]): string {
+  return ['```simple-gallery', ...references.map((ref) => `- ${ref}`), '```'].join('\n');
+}
+
+/**
+ * A user's selection, if there is one; otherwise the contiguous non-blank
+ * paragraph around the cursor. This lets the command work on a deliberate
+ * selection or, just as often, on a block of dropped-in images the user
+ * never bothered to select at all.
+ */
+function getGallerySourceRange(editor: Editor): { from: EditorPosition; to: EditorPosition } {
+  const selection = editor.listSelections()[0];
+  const hasSelection = selection
+    && (selection.anchor.line !== selection.head.line || selection.anchor.ch !== selection.head.ch);
+  if (hasSelection) {
+    const [a, b] = [selection.anchor, selection.head];
+    const aFirst = a.line < b.line || (a.line === b.line && a.ch <= b.ch);
+    return aFirst ? { from: a, to: b } : { from: b, to: a };
+  }
+
+  const cursorLine = editor.getCursor().line;
+  const lastLine = editor.lastLine();
+  let start = cursorLine;
+  while (start > 0 && editor.getLine(start - 1).trim() !== '') start--;
+  let end = cursorLine;
+  while (end < lastLine && editor.getLine(end + 1).trim() !== '') end++;
+  return { from: { line: start, ch: 0 }, to: { line: end, ch: editor.getLine(end).length } };
+}
+
+const GALLERY_TEMPLATE_ITEM = '![[image.jpg]]';
+const GALLERY_TEMPLATE_ITEM_PREFIX = '- ';
 
 // ---------------------------------------------------------------------------
 // Masonry sizing: a CSS Grid + ResizeObserver technique, no external library.
@@ -305,6 +389,36 @@ export default class SimpleGalleryPlugin extends Plugin {
         ctx.addChild(new GalleryRenderChild(el));
       }
     );
+
+    this.addCommand({
+      id: 'convert-to-gallery',
+      name: 'Convert selection to gallery',
+      editorCheckCallback: (checking: boolean, editor: Editor) => {
+        const range = getGallerySourceRange(editor);
+        const references = extractImageReferences(editor.getRange(range.from, range.to));
+        if (references.length === 0) return false;
+        if (checking) return true;
+        editor.replaceRange(buildGalleryBlockText(references), range.from, range.to);
+        return true;
+      }
+    });
+
+    this.addCommand({
+      id: 'insert-gallery-block',
+      name: 'Insert empty gallery block',
+      editorCallback: (editor: Editor) => {
+        const cursor = editor.getCursor();
+        const itemLine = `${GALLERY_TEMPLATE_ITEM_PREFIX}${GALLERY_TEMPLATE_ITEM}`;
+        editor.replaceRange(['```simple-gallery', itemLine, '```'].join('\n'), cursor);
+
+        const placeholderLine = cursor.line + 1;
+        const placeholderStart = GALLERY_TEMPLATE_ITEM_PREFIX.length + '![['.length;
+        editor.setSelection(
+          { line: placeholderLine, ch: placeholderStart },
+          { line: placeholderLine, ch: placeholderStart + 'image.jpg'.length }
+        );
+      }
+    });
   }
 
   onunload(): void {

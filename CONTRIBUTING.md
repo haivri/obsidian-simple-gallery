@@ -16,6 +16,10 @@ Before submitting a change:
    updates an already-open gallery immediately.
 7. If Fullscreen Image is installed, confirm clicking a thumbnail still opens it in the
    lightbox.
+8. Test **Convert selection to gallery** on: a bulleted list of image embeds, a bare list
+   with no bullets, a selection with non-image content mixed in (should be excluded), and
+   with nothing selected (should fall back to the paragraph around the cursor). Test
+   **Insert empty gallery block** as well.
 
 Keep the plugin simple and local-first. New functionality must not transmit vault content
 without explicit user action and clear documentation. Do not include vault content or

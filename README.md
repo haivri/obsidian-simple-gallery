@@ -1,26 +1,23 @@
 # Simple Gallery
 
 Turn a simple list of image embeds into a responsive, portfolio-style photo gallery — no
-frontmatter, no per-image HTML, just a short list in a code block.
+frontmatter, no per-image HTML, just a short list in a code block. Already dropped some
+images into a note? A single command turns them into a gallery on the spot.
 
 Simple Gallery is deliberately small and local-first. It does not modify your notes,
 collect telemetry, or make network requests.
 
-## Features
-
-- Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
-- Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias) or bare
-  filenames/relative paths.
-- Optional per-image captions, optional `section:` groupings, and an optional intro
-  blurb — all opt-in; a plain list of images works with none of them.
-- Default **Masonry** layout sizes each thumbnail from its own photo's natural
-  proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
-  clean, uniform tiles instead.
-- Broken or unresolved image references degrade gracefully to an inline placeholder.
-- A documented set of CSS custom properties for deeper visual customization via snippets.
-- Works without external services on desktop and mobile.
-
 ## See it in action
+
+<p align="center">
+  <img src="assets/simple-gallery-convert-command.png" alt="The Convert selection to gallery command turning a plain list of dropped-in images into a simple-gallery block" width="900">
+</p>
+
+### Drop in images, run a command, done
+
+Drag a handful of photos into a note — with or without selecting them, with or without
+list bullets — and run **Convert selection to gallery** from the command palette. No
+selection at all? It picks up the paragraph of images around your cursor automatically.
 
 <p align="center">
   <img src="assets/simple-gallery-masonry.png" alt="Simple Gallery rendering a Brussels sprouts recipe with the default Masonry layout" width="900">
@@ -31,26 +28,43 @@ collect telemetry, or make network requests.
 Masonry sizes each thumbnail from its own photo's proportions — tall photos get a taller
 cell, wide photos a wider one — with no manual tagging required.
 
-### A clean, uniform alternative
-
 <p align="center">
   <img src="assets/simple-gallery-grid.png" alt="The same gallery rendered with the uniform Grid layout" width="900">
 </p>
 
-Switch to the **Grid** layout in settings for evenly cropped, uniform tiles instead.
+### A clean, uniform alternative
 
-### Settings
+Switch to the **Grid** layout in settings for evenly cropped, uniform tiles instead.
 
 <p align="center">
   <img src="assets/simple-gallery-settings.png" alt="Simple Gallery settings showing the Layout, thumbnail size, gap, and caption controls" width="900">
 </p>
+
+## Features
+
+- Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
+- A **Convert selection to gallery** command turns existing images already in a note —
+  bulleted or not, selected or not — straight into a gallery block. An **Insert empty
+  gallery block** command starts one from scratch.
+- Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
+  filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
+  a remote URL.
+- Optional per-image captions, optional `section:` groupings, and an optional intro
+  blurb — all opt-in; a plain list of images works with none of them.
+- Default **Masonry** layout sizes each thumbnail from its own photo's natural
+  proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
+  clean, uniform tiles instead.
+- Broken or unresolved image references degrade gracefully to an inline placeholder.
+- A documented set of CSS custom properties for deeper visual customization via snippets.
+- Works without external services on desktop and mobile.
 
 ## Usage
 
 Add a fenced code block with the language tag `simple-gallery`. List one image per line,
 each starting with `- `. Reference images the same way you would embed them anywhere else
 in Obsidian — a wikilink embed (`![[photo.jpg]]`, with an alias like Obsidian's own embed
-syntax if you like) or a bare filename/relative path both work:
+syntax if you like), a bare filename/relative path, or a standard Markdown image link all
+work:
 
     ```simple-gallery
     - ![[brussels-1.jpg]]
@@ -62,7 +76,7 @@ syntax if you like) or a bare filename/relative path both work:
 Simple Gallery resolves each reference the same way Obsidian resolves any other embed, so
 images anywhere in the vault work without a full path. If a reference can't be resolved,
 that one item renders as a small broken-image placeholder instead of failing the whole
-block.
+block. Or skip typing it out entirely — see **Commands** below.
 
 ### Captions
 
@@ -99,6 +113,19 @@ exactly like the plain list above — one flat gallery, no headings.
 > line beneath it is that image's caption, a top-level `section:` line starts a labeled
 > group, and an indented `note:` line beneath a section (or at the very top of the block)
 > is a short blurb. Nothing else in the block is interpreted.
+
+## Commands
+
+- **Convert selection to gallery** — Scans the current selection (or, if nothing is
+  selected, the paragraph of text around the cursor) for image references — embed
+  wikilinks, bare filenames, or Markdown image links, whether or not they're in a bulleted
+  list — and replaces that text with a `simple-gallery` block containing them, one per
+  line. Only appears in the command palette when there's actually something to convert.
+  Non-image content mixed into the selection (other notes, audio embeds, prose) is left
+  out of the resulting gallery automatically.
+- **Insert empty gallery block** — Inserts a starter `simple-gallery` block at the cursor
+  with a single placeholder image reference pre-selected, so you can immediately type over
+  it with a real filename.
 
 ## Settings
 
@@ -163,7 +190,7 @@ npm run lint
 
 1. Run `npm run build` and `npm run lint`.
 2. Test a gallery in both Reading view and Live Preview, in both layout modes, and in both
-   light and dark themes.
+   light and dark themes. Test both commands, with and without a selection.
 3. Run `npm version patch`, `npm version minor`, or `npm version major`. The version
    script keeps `manifest.json` and `versions.json` in sync.
 4. Push the resulting numeric tag (for example `1.0.1`). GitHub Actions builds the plugin
