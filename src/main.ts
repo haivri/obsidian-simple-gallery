@@ -4,7 +4,9 @@ import {
   EditorPosition,
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
+  MarkdownView,
   Modal,
+  Notice,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -19,6 +21,11 @@ import {
 type GalleryLayout = 'masonry' | 'grid';
 type CaptionFont = 'default' | 'monospace';
 type CaptionLines = 'full' | 'single';
+type CaptionAlign = 'left' | 'center' | 'right' | 'justify';
+
+function isCaptionAlign(value: string): value is CaptionAlign {
+  return value === 'left' || value === 'center' || value === 'right' || value === 'justify';
+}
 
 interface SimpleGallerySettings {
   minThumbnailSize: number;
@@ -27,6 +34,7 @@ interface SimpleGallerySettings {
   layout: GalleryLayout;
   captionFont: CaptionFont;
   captionLines: CaptionLines;
+  captionAlign: CaptionAlign;
 }
 
 const DEFAULT_SETTINGS: SimpleGallerySettings = {
@@ -35,7 +43,8 @@ const DEFAULT_SETTINGS: SimpleGallerySettings = {
   showCaptions: true,
   layout: 'masonry',
   captionFont: 'default',
-  captionLines: 'full'
+  captionLines: 'full',
+  captionAlign: 'center'
 };
 
 // ---------------------------------------------------------------------------
@@ -43,7 +52,7 @@ const DEFAULT_SETTINGS: SimpleGallerySettings = {
 //
 // Real YAML treats a leading "!" as a tag indicator, so an unquoted
 // "![[photo.jpg]]" embed can't round-trip through a YAML library without
-// quoting every line. Four line shapes are recognized instead; anything else
+// quoting every line. A small set of contextual line shapes is recognized instead; anything else
 // is ignored rather than treated as an error.
 // ---------------------------------------------------------------------------
 
@@ -53,8 +62,12 @@ export interface GalleryItem {
   /** Bracket-stripped linkpath to resolve. */
   linkpath: string;
   caption?: string;
-  /** Only ever true when set; never explicitly false. At most one per section. */
+  /** Only ever true when set; never explicitly false. */
   featured?: true;
+  /** Optional per-photo overrides; undefined inherits the effective gallery setting. */
+  captionFont?: CaptionFont;
+  captionLines?: CaptionLines;
+  captionAlign?: CaptionAlign;
 }
 
 export interface GallerySection {
@@ -73,6 +86,7 @@ export interface GalleryBlock {
   showCaptions?: boolean;
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
+  captionAlign?: CaptionAlign;
   sections: GallerySection[];
 }
 
@@ -86,6 +100,7 @@ const MIN_SIZE_LINE = /^min-size:\s*(\d+)\s*$/i;
 const GAP_LINE = /^gap:\s*(\d+)\s*$/i;
 const CAPTION_FONT_LINE = /^caption-font:\s*(default|monospace)\s*$/i;
 const CAPTION_LINES_LINE = /^caption-lines:\s*(full|single)\s*$/i;
+const CAPTION_ALIGN_LINE = /^caption-align:\s*(left|center|right|justify)\s*$/i;
 const CAPTIONS_LINE = /^captions:\s*(true|false)\s*$/i;
 const EMBED_LINK = /^!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
 
@@ -172,6 +187,12 @@ export function parseGalleryBlock(source: string): GalleryBlock {
           continue;
         }
 
+        const captionAlignMatch = CAPTION_ALIGN_LINE.exec(trimmed);
+        if (captionAlignMatch && block.captionAlign === undefined) {
+          block.captionAlign = captionAlignMatch[1].toLowerCase() as CaptionAlign;
+          continue;
+        }
+
         const introMatch = NOTE_LINE.exec(trimmed);
         if (introMatch && block.intro === undefined) {
           block.intro = introMatch[1].trim();
@@ -195,6 +216,24 @@ export function parseGalleryBlock(source: string): GalleryBlock {
 
       if (FEATURED_LINE.test(trimmed)) {
         if (item && item.featured === undefined) item.featured = true;
+        continue;
+      }
+
+      const captionFontMatch = CAPTION_FONT_LINE.exec(trimmed);
+      if (captionFontMatch && item?.captionFont === undefined) {
+        item.captionFont = captionFontMatch[1].toLowerCase() as CaptionFont;
+        continue;
+      }
+
+      const captionLinesMatch = CAPTION_LINES_LINE.exec(trimmed);
+      if (captionLinesMatch && item?.captionLines === undefined) {
+        item.captionLines = captionLinesMatch[1].toLowerCase() as CaptionLines;
+        continue;
+      }
+
+      const captionAlignMatch = CAPTION_ALIGN_LINE.exec(trimmed);
+      if (captionAlignMatch && item?.captionAlign === undefined) {
+        item.captionAlign = captionAlignMatch[1].toLowerCase() as CaptionAlign;
         continue;
       }
 
@@ -238,18 +277,22 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
   if (block.showCaptions !== undefined) preamble.push(`captions: ${block.showCaptions}`);
   if (block.captionFont !== undefined) preamble.push(`caption-font: ${block.captionFont}`);
   if (block.captionLines !== undefined) preamble.push(`caption-lines: ${block.captionLines}`);
+  if (block.captionAlign !== undefined) preamble.push(`caption-align: ${block.captionAlign}`);
 
   const body: string[] = [];
   for (const section of block.sections) {
     if (section.label !== undefined) {
       if (body.length > 0) body.push('');
-      body.push(`section: ${section.label}`);
+      body.push(section.label ? `section: ${section.label}` : 'section:');
       if (section.note) body.push(`  note: ${section.note}`);
     }
     for (const item of section.items) {
       body.push(`- ${item.raw}`);
       if (item.caption) body.push(`  caption: ${item.caption}`);
       if (item.featured) body.push('  featured: true');
+      if (item.captionFont !== undefined) body.push(`  caption-font: ${item.captionFont}`);
+      if (item.captionLines !== undefined) body.push(`  caption-lines: ${item.captionLines}`);
+      if (item.captionAlign !== undefined) body.push(`  caption-align: ${item.captionAlign}`);
     }
   }
 
@@ -285,6 +328,20 @@ function resolveGalleryImageSrc(app: App, linkpath: string, sourcePath: string):
  * in either direction.
  */
 function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
+  el.removeClass(
+    'simple-gallery-force-grid',
+    'simple-gallery-force-masonry',
+    'simple-gallery-force-hide-captions',
+    'simple-gallery-force-show-captions',
+    'simple-gallery-force-caption-font-mono',
+    'simple-gallery-force-caption-font-default',
+    'simple-gallery-force-caption-lines-single',
+    'simple-gallery-force-caption-lines-full'
+  );
+  el.style.removeProperty('--simple-gallery-min-size');
+  el.style.removeProperty('--simple-gallery-gap');
+  el.style.removeProperty('--simple-gallery-caption-align');
+
   if (block.layout === 'grid') el.addClass('simple-gallery-force-grid');
   else if (block.layout === 'masonry') el.addClass('simple-gallery-force-masonry');
 
@@ -303,25 +360,56 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
   if (block.gapSize !== undefined) {
     el.style.setProperty('--simple-gallery-gap', `${block.gapSize}px`);
   }
+  if (block.captionAlign !== undefined) {
+    el.style.setProperty('--simple-gallery-caption-align', block.captionAlign);
+  }
+}
+
+/** Applies the caption appearance overrides that may be scoped to one photo. */
+function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
+  el.removeClass(
+    'simple-gallery-item-caption-font-mono',
+    'simple-gallery-item-caption-font-default',
+    'simple-gallery-item-caption-lines-single',
+    'simple-gallery-item-caption-lines-full'
+  );
+  el.style.removeProperty('--simple-gallery-caption-align');
+
+  if (item.captionFont === 'monospace') el.addClass('simple-gallery-item-caption-font-mono');
+  else if (item.captionFont === 'default') el.addClass('simple-gallery-item-caption-font-default');
+
+  if (item.captionLines === 'single') el.addClass('simple-gallery-item-caption-lines-single');
+  else if (item.captionLines === 'full') el.addClass('simple-gallery-item-caption-lines-full');
+
+  if (item.captionAlign !== undefined) {
+    el.style.setProperty('--simple-gallery-caption-align', item.captionAlign);
+  }
 }
 
 /**
  * Always renders the full interactive markup (editable class, gear button,
- * empty-caption placeholders, section-insert buttons) -- there is no
- * reliable way to know here whether this is Live Preview or Reading Mode:
- * Obsidian can build this widget before it's attached under
- * .markdown-source-view/.markdown-reading-view, so checking el.closest()
- * at this point produced false negatives in practice. GalleryRenderChild's
- * onload() runs after attachment (proven by the masonry sizing, which
- * depends on layout being complete) and strips this markup back out there
- * if it turns out to be Reading Mode -- invisibly, since every element it
- * adds defaults to opacity/max-height 0 until hovered.
+ * empty-caption placeholders, section-insert buttons). The render child
+ * strips it only when the block is positively identified as Reading Mode.
+ * Obsidian is allowed to call both the processor and the child's onload()
+ * before the element has acquired its final editor ancestors, so the
+ * absence of `.markdown-source-view` must not be treated as Reading Mode.
  */
 function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
   el.addClass('simple-gallery-root', 'simple-gallery-editable');
-  const settingsButton = el.createEl('button', { cls: 'simple-gallery-settings-button', text: '⚙' });
+  const toolbar = el.createDiv({ cls: 'simple-gallery-toolbar' });
+  const settingsButton = toolbar.createEl('button', {
+    cls: 'simple-gallery-toolbar-button simple-gallery-settings-button',
+    text: '⚙ Gallery settings'
+  });
   settingsButton.type = 'button';
   settingsButton.setAttribute('aria-label', 'Gallery settings');
+
+  const removeButton = toolbar.createEl('button', {
+    cls: 'simple-gallery-toolbar-button simple-gallery-remove-button',
+    text: 'Remove gallery'
+  });
+  removeButton.type = 'button';
+  removeButton.setAttribute('aria-label', 'Remove gallery');
 
   applyBlockOverrides(el, block);
 
@@ -329,16 +417,32 @@ function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sour
     el.createEl('p', { cls: 'simple-gallery-note simple-gallery-intro', text: block.intro });
   }
 
-  const isFlat = block.sections.length === 1 && !block.sections[0].label && !block.sections[0].note;
+  const isFlat = block.sections.length === 1
+    && block.sections[0].label === undefined
+    && !block.sections[0].note;
 
   block.sections.forEach((section, sectionIndex) => {
     const parent = isFlat ? el : el.createDiv({ cls: 'simple-gallery-section' });
 
     if (!isFlat) {
       parent.dataset.sectionIndex = String(sectionIndex);
-      if (section.label) {
-        const title = parent.createEl('h4', { cls: 'simple-gallery-section-title', text: section.label });
+      if (section.label !== undefined) {
+        const header = parent.createDiv({ cls: 'simple-gallery-section-header' });
+        const title = header.createEl('h4', {
+          cls: 'simple-gallery-section-title',
+          text: section.label
+        });
+        if (!section.label) title.addClass('simple-gallery-section-title-empty');
+        title.setAttribute('aria-label', section.label || 'Empty section title; click to edit');
         title.dataset.sectionIndex = String(sectionIndex);
+
+        const removeButton = header.createEl('button', {
+          cls: 'simple-gallery-section-remove',
+          text: 'Remove section',
+          attr: { 'aria-label': `Remove section ${section.label || 'Untitled section'}; photos will be kept` }
+        });
+        removeButton.type = 'button';
+        removeButton.dataset.sectionIndex = String(sectionIndex);
       }
       if (section.note) {
         parent.createEl('p', { cls: 'simple-gallery-note', text: section.note });
@@ -362,40 +466,43 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
 
   const figure = grid.createEl('figure', { cls: 'simple-gallery-item' });
   if (item.featured) figure.addClass('simple-gallery-item-featured');
+  applyItemCaptionOverrides(figure, item);
 
-  const img = figure.createEl('img', { cls: 'simple-gallery-img' });
+  const photo = figure.createDiv({ cls: 'simple-gallery-photo' });
+  const img = photo.createEl('img', { cls: 'simple-gallery-img' });
   img.src = src;
   img.loading = 'lazy';
   img.alt = item.caption?.trim() || basename(item.linkpath);
+
+  renderItemControls(photo, item.featured === true);
 
   if (item.caption) {
     figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
   } else {
     const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption simple-gallery-caption-empty' });
-    caption.setText('+ add caption');
+    caption.setText('Add a caption');
   }
-
-  renderItemControls(figure, item.featured === true);
 }
 
 /**
  * Every per-item control: the "add a section boundary here" buttons (the
  * visual counterpart to hand-typing a "section:" line), a "feature this
- * image" toggle, and a small always-visible "..." icon that toggles the
- * item's expanded/active state -- the mobile-friendly alternative to
- * hovering, since touch devices have no hover state at all. Hovering (on
- * desktop) or tapping the "..." icon both reveal the same controls; the
- * icon just makes them reachable without a mouse.
+ * image" toggle, per-photo caption settings, and a mobile-only "..." icon
+ * that toggles the item's expanded/active state. Desktop exposes the panel
+ * on hover; mobile exposes the same actions as a labeled touch panel.
  */
-function renderItemControls(item: HTMLElement, isFeatured: boolean): void {
-  const above = item.createEl('button', {
+function renderItemControls(photo: HTMLElement, isFeatured: boolean): void {
+  const controls = photo.createDiv({ cls: 'simple-gallery-item-controls' });
+  controls.setAttribute('aria-label', 'Photo controls');
+
+  const above = controls.createEl('button', {
     cls: 'simple-gallery-section-insert simple-gallery-section-insert-above',
     text: '+ section above'
   });
   above.type = 'button';
   above.draggable = false;
 
-  const below = item.createEl('button', {
+  const below = controls.createEl('button', {
     cls: 'simple-gallery-section-insert simple-gallery-section-insert-below',
     text: '+ section below'
   });
@@ -405,18 +512,31 @@ function renderItemControls(item: HTMLElement, isFeatured: boolean): void {
   const featureCls = isFeatured
     ? 'simple-gallery-feature-toggle simple-gallery-feature-toggle-on'
     : 'simple-gallery-feature-toggle';
-  const feature = item.createEl('button', {
+  const feature = controls.createEl('button', {
     cls: featureCls,
-    text: '★',
     attr: { 'aria-label': isFeatured ? 'Remove as featured image' : 'Feature this image' }
   });
   feature.type = 'button';
   feature.draggable = false;
+  feature.createSpan({ cls: 'simple-gallery-control-icon', text: '★' });
+  feature.createSpan({
+    cls: 'simple-gallery-control-label',
+    text: isFeatured ? 'Use regular size' : 'Make photo larger'
+  });
 
-  const menu = item.createEl('button', {
+  const settings = controls.createEl('button', {
+    cls: 'simple-gallery-photo-settings',
+    attr: { 'aria-label': 'Caption settings for this photo' }
+  });
+  settings.type = 'button';
+  settings.draggable = false;
+  settings.createSpan({ cls: 'simple-gallery-control-icon', text: 'Aa' });
+  settings.createSpan({ cls: 'simple-gallery-control-label', text: 'Caption settings' });
+
+  const menu = photo.createEl('button', {
     cls: 'simple-gallery-item-menu',
     text: '⋯',
-    attr: { 'aria-label': 'Show controls for this photo' }
+    attr: { 'aria-label': 'Show controls for this photo', 'aria-expanded': 'false' }
   });
   menu.type = 'button';
   menu.draggable = false;
@@ -425,9 +545,11 @@ function renderItemControls(item: HTMLElement, isFeatured: boolean): void {
 function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
   const broken = grid.createDiv({ cls: 'simple-gallery-item simple-gallery-broken' });
   if (item.featured) broken.addClass('simple-gallery-item-featured');
-  broken.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
-  broken.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
-  renderItemControls(broken, item.featured === true);
+  applyItemCaptionOverrides(broken, item);
+  const photo = broken.createDiv({ cls: 'simple-gallery-photo simple-gallery-broken-photo' });
+  photo.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
+  photo.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
+  renderItemControls(photo, item.featured === true);
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +631,163 @@ const GALLERY_TEMPLATE_ITEM = '![[image.jpg]]';
 const GALLERY_TEMPLATE_ITEM_PREFIX = '- ';
 
 // ---------------------------------------------------------------------------
+// Destructive gallery removal confirmation.
+// ---------------------------------------------------------------------------
+
+class RemoveGalleryModal extends Modal {
+  constructor(app: App, private readonly onConfirm: () => void) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Remove gallery?' });
+    contentEl.createEl('p', {
+      text: 'This removes the gallery block from the note. Its image files will not be deleted.'
+    });
+
+    new Setting(contentEl)
+      .addButton((button) => {
+        button
+          .setButtonText('Remove gallery')
+          .setCta()
+          .onClick(() => {
+            this.onConfirm();
+            this.close();
+          });
+        button.buttonEl.addClass('simple-gallery-destructive-button');
+      })
+      .addButton((button) => button
+        .setButtonText('Cancel')
+        .onClick(() => this.close()));
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-photo caption settings modal, opened from the photo's Aa control.
+// ---------------------------------------------------------------------------
+
+interface PhotoCaptionOverrides {
+  captionFont?: CaptionFont;
+  captionLines?: CaptionLines;
+  captionAlign?: CaptionAlign;
+}
+
+class PhotoCaptionSettingsModal extends Modal {
+  private captionFont?: CaptionFont;
+  private captionLines?: CaptionLines;
+  private captionAlign?: CaptionAlign;
+  private saved = false;
+
+  constructor(
+    app: App,
+    item: GalleryItem,
+    private readonly onPreview: (overrides: PhotoCaptionOverrides) => void,
+    private readonly onSave: (overrides: PhotoCaptionOverrides) => void,
+    private readonly onCancel: () => void
+  ) {
+    super(app);
+    this.captionFont = item.captionFont;
+    this.captionLines = item.captionLines;
+    this.captionAlign = item.captionAlign;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Photo caption settings' });
+    contentEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: 'Only applies to this photo. Inherited options follow this gallery’s current appearance.'
+    });
+
+    new Setting(contentEl)
+      .setName('Caption font')
+      .addDropdown((dropdown) => dropdown
+        .addOption('inherit', 'Use gallery setting')
+        .addOption('default', 'Default')
+        .addOption('monospace', 'Typewriter (monospace)')
+        .setValue(this.captionFont ?? 'inherit')
+        .onChange((value) => {
+          this.captionFont = value === 'default' || value === 'monospace' ? value : undefined;
+          this.preview();
+        }));
+
+    new Setting(contentEl)
+      .setName('Caption length')
+      .addDropdown((dropdown) => dropdown
+        .addOption('inherit', 'Use gallery setting')
+        .addOption('full', 'Full')
+        .addOption('single', 'Single line')
+        .setValue(this.captionLines ?? 'inherit')
+        .onChange((value) => {
+          this.captionLines = value === 'full' || value === 'single' ? value : undefined;
+          this.preview();
+        }));
+
+    new Setting(contentEl)
+      .setName('Caption alignment')
+      .addDropdown((dropdown) => dropdown
+        .addOption('inherit', 'Use gallery setting')
+        .addOption('left', 'Left')
+        .addOption('center', 'Center')
+        .addOption('right', 'Right')
+        .addOption('justify', 'Justified')
+        .setValue(this.captionAlign ?? 'inherit')
+        .onChange((value) => {
+          this.captionAlign = isCaptionAlign(value) ? value : undefined;
+          this.preview();
+        }));
+
+    new Setting(contentEl)
+      .addButton((button) => button
+        .setButtonText('Save')
+        .setCta()
+        .onClick(() => {
+          this.saved = true;
+          this.onSave(this.values());
+          this.close();
+        }))
+      .addButton((button) => button
+        .setButtonText('Use gallery settings')
+        .onClick(() => this.resetToGallery()))
+      .addButton((button) => button
+        .setButtonText('Cancel')
+        .onClick(() => this.close()));
+  }
+
+  onClose(): void {
+    if (!this.saved) this.onCancel();
+    this.contentEl.empty();
+  }
+
+  private values(): PhotoCaptionOverrides {
+    return {
+      captionFont: this.captionFont,
+      captionLines: this.captionLines,
+      captionAlign: this.captionAlign
+    };
+  }
+
+  private preview(): void {
+    this.onPreview(this.values());
+  }
+
+  private resetToGallery(): void {
+    this.captionFont = undefined;
+    this.captionLines = undefined;
+    this.captionAlign = undefined;
+    this.onOpen();
+    this.preview();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-gallery settings modal, opened from the gear button in Live Preview.
 // ---------------------------------------------------------------------------
 
@@ -519,6 +798,7 @@ interface GalleryOverrides {
   showCaptions?: boolean;
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
+  captionAlign?: CaptionAlign;
 }
 
 /**
@@ -536,12 +816,16 @@ class GallerySettingsModal extends Modal {
   private showCaptions: boolean;
   private captionFont: CaptionFont;
   private captionLines: CaptionLines;
+  private captionAlign: CaptionAlign;
+  private saved = false;
 
   constructor(
     app: App,
     private readonly defaults: SimpleGallerySettings,
     block: GalleryBlock,
-    private readonly onSave: (overrides: GalleryOverrides) => void
+    private readonly onPreview: (settings: GalleryOverrides) => void,
+    private readonly onSave: (overrides: GalleryOverrides) => void,
+    private readonly onCancel: () => void
   ) {
     super(app);
     this.layout = block.layout ?? defaults.layout;
@@ -550,10 +834,12 @@ class GallerySettingsModal extends Modal {
     this.showCaptions = block.showCaptions ?? defaults.showCaptions;
     this.captionFont = block.captionFont ?? defaults.captionFont;
     this.captionLines = block.captionLines ?? defaults.captionLines;
+    this.captionAlign = block.captionAlign ?? defaults.captionAlign;
   }
 
   onOpen(): void {
     const { contentEl } = this;
+    contentEl.empty();
     contentEl.createEl('h2', { text: 'Gallery settings' });
     contentEl.createEl('p', {
       cls: 'setting-item-description',
@@ -568,15 +854,17 @@ class GallerySettingsModal extends Modal {
         .setValue(this.layout)
         .onChange((value) => {
           this.layout = value === 'grid' ? 'grid' : 'masonry';
+          this.preview();
         }));
 
     new Setting(contentEl)
       .setName('Minimum thumbnail size')
       .addSlider((slider) => slider
-        .setLimits(80, 400, 10)
+        .setLimits(80, 400, 5)
         .setValue(this.minThumbnailSize)
         .onChange((value) => {
           this.minThumbnailSize = value;
+          this.preview();
         }));
 
     new Setting(contentEl)
@@ -586,6 +874,7 @@ class GallerySettingsModal extends Modal {
         .setValue(this.gapSize)
         .onChange((value) => {
           this.gapSize = value;
+          this.preview();
         }));
 
     new Setting(contentEl)
@@ -594,6 +883,7 @@ class GallerySettingsModal extends Modal {
         .setValue(this.showCaptions)
         .onChange((value) => {
           this.showCaptions = value;
+          this.preview();
         }));
 
     new Setting(contentEl)
@@ -604,6 +894,7 @@ class GallerySettingsModal extends Modal {
         .setValue(this.captionFont)
         .onChange((value) => {
           this.captionFont = value === 'monospace' ? 'monospace' : 'default';
+          this.preview();
         }));
 
     new Setting(contentEl)
@@ -614,6 +905,20 @@ class GallerySettingsModal extends Modal {
         .setValue(this.captionLines)
         .onChange((value) => {
           this.captionLines = value === 'single' ? 'single' : 'full';
+          this.preview();
+        }));
+
+    new Setting(contentEl)
+      .setName('Caption alignment')
+      .addDropdown((dropdown) => dropdown
+        .addOption('left', 'Left')
+        .addOption('center', 'Center')
+        .addOption('right', 'Right')
+        .addOption('justify', 'Justified')
+        .setValue(this.captionAlign)
+        .onChange((value) => {
+          this.captionAlign = isCaptionAlign(value) ? value : 'center';
+          this.preview();
         }));
 
     new Setting(contentEl)
@@ -621,6 +926,7 @@ class GallerySettingsModal extends Modal {
         .setButtonText('Save')
         .setCta()
         .onClick(() => {
+          this.saved = true;
           this.onSave({
             layout: this.layout === this.defaults.layout ? undefined : this.layout,
             minThumbnailSize:
@@ -628,17 +934,46 @@ class GallerySettingsModal extends Modal {
             gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
             showCaptions: this.showCaptions === this.defaults.showCaptions ? undefined : this.showCaptions,
             captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
-            captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines
+            captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
+            captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign
           });
           this.close();
         }))
+      .addButton((button) => button
+        .setButtonText('Reset to defaults')
+        .onClick(() => this.resetToDefaults()))
       .addButton((button) => button
         .setButtonText('Cancel')
         .onClick(() => this.close()));
   }
 
   onClose(): void {
+    if (!this.saved) this.onCancel();
     this.contentEl.empty();
+  }
+
+  private preview(): void {
+    this.onPreview({
+      layout: this.layout,
+      minThumbnailSize: this.minThumbnailSize,
+      gapSize: this.gapSize,
+      showCaptions: this.showCaptions,
+      captionFont: this.captionFont,
+      captionLines: this.captionLines,
+      captionAlign: this.captionAlign
+    });
+  }
+
+  private resetToDefaults(): void {
+    this.layout = this.defaults.layout;
+    this.minThumbnailSize = this.defaults.minThumbnailSize;
+    this.gapSize = this.defaults.gapSize;
+    this.showCaptions = this.defaults.showCaptions;
+    this.captionFont = this.defaults.captionFont;
+    this.captionLines = this.defaults.captionLines;
+    this.captionAlign = this.defaults.captionAlign;
+    this.onOpen();
+    this.preview();
   }
 }
 
@@ -656,6 +991,8 @@ class GallerySettingsModal extends Modal {
 class GalleryRenderChild extends MarkdownRenderChild {
   private observer: ResizeObserver | null = null;
   private scheduled = false;
+  private readonly animatedGridResizes = new Map<HTMLElement, number>();
+  private initializationFrame: number | null = null;
 
   private draggedSectionIndex = -1;
   private draggedItemIndex = -1;
@@ -673,21 +1010,24 @@ class GalleryRenderChild extends MarkdownRenderChild {
   }
 
   /**
-   * Determining Live Preview vs. Reading Mode has to happen here, not at
-   * render time: Obsidian can build this widget before it's attached under
-   * .markdown-source-view/.markdown-reading-view, so el.closest() at render
-   * time produced false negatives in practice (confirmed by comparing real
-   * DOM dumps from both modes). onload() runs after attachment -- proven by
-   * the masonry sizing below, which depends on layout being complete -- so
-   * the check is reliable here. If it's Reading Mode, the interactive
-   * markup rendered unconditionally gets stripped back out; since all of it
-   * defaults to invisible (opacity/max-height 0) until hovered, there's
-   * nothing to see in the moment before it's removed.
+   * MarkdownRenderChild.onload() can run before this element is attached to
+   * either the Live Preview or Reading Mode tree. Wait until the next frame,
+   * after Obsidian has inserted it, before deciding whether to wire editing.
+   * This keeps Reading Mode completely inert: no controls, draggable items,
+   * or click-to-edit handlers can compete with presentation plugins such as
+   * an image lightbox.
    */
   private grids: HTMLElement[] = [];
 
   onload(): void {
-    this.isLivePreview = this.containerEl.closest('.markdown-source-view') !== null;
+    this.initializationFrame = window.requestAnimationFrame(() => {
+      this.initializationFrame = null;
+      this.initializeAfterAttachment();
+    });
+  }
+
+  private initializeAfterAttachment(): void {
+    this.isLivePreview = this.containerEl.closest('.markdown-reading-view') === null;
     if (!this.isLivePreview) this.stripInteractiveMarkup();
 
     this.grids = Array.from(this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-grid'));
@@ -707,6 +1047,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
         this.wireCaptionEditing(grid, sectionIndex);
         this.wireSectionInsertButtons(grid, sectionIndex);
         this.wireFeatureToggle(grid, sectionIndex);
+        this.wirePhotoSettingsButtons(grid, sectionIndex);
         this.wireItemMenuToggle(grid);
       }
     });
@@ -714,13 +1055,30 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.plugin.galleryInstances.add(this);
 
     if (this.isLivePreview) {
-      const settingsButton = this.containerEl.querySelector<HTMLElement>(':scope > .simple-gallery-settings-button');
+      this.registerDomEvent(this.containerEl, 'pointerdown', () => {
+        this.containerEl.addClass('simple-gallery-selected');
+      }, { capture: true });
+
+      const settingsButton = this.containerEl.querySelector<HTMLElement>('.simple-gallery-settings-button');
       if (settingsButton) {
         this.registerDomEvent(settingsButton, 'click', (evt: MouseEvent) => {
           evt.stopPropagation();
-          new GallerySettingsModal(this.app, this.plugin.settings, this.block, (overrides) => {
-            void this.commitOverrides(overrides);
-          }).open();
+          new GallerySettingsModal(
+            this.app,
+            this.plugin.settings,
+            this.block,
+            (settings) => this.previewOverrides(settings),
+            (overrides) => void this.commitOverrides(overrides),
+            () => this.previewOverrides(this.block)
+          ).open();
+        });
+      }
+
+      const removeButton = this.containerEl.querySelector<HTMLElement>('.simple-gallery-remove-button');
+      if (removeButton) {
+        this.registerDomEvent(removeButton, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
+          new RemoveGalleryModal(this.app, () => void this.removeGalleryFromFile()).open();
         });
       }
 
@@ -728,13 +1086,16 @@ class GalleryRenderChild extends MarkdownRenderChild {
         const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
         this.wireSectionTitleEditing(titleEl, sectionIndex);
       });
+      this.wireSectionRemoveButtons();
 
       // Tapping the "..." icon stops propagation before this fires, so this
       // only ever runs for a click that landed somewhere else -- collapsing
       // whichever item was expanded, the same way an outside click closes a popover.
-      this.registerDomEvent(document, 'click', () => {
-        this.containerEl.querySelectorAll('.simple-gallery-item-active')
-          .forEach((el) => el.removeClass('simple-gallery-item-active'));
+      this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
+        const target = evt.target;
+        const clickedGallery = target instanceof Node && this.containerEl.contains(target);
+        this.containerEl.toggleClass('simple-gallery-selected', clickedGallery);
+        this.closeItemControls();
       });
     }
   }
@@ -742,11 +1103,11 @@ class GalleryRenderChild extends MarkdownRenderChild {
   /** Removes the interactive-only markup rendered unconditionally, for Reading Mode. */
   private stripInteractiveMarkup(): void {
     this.containerEl.removeClass('simple-gallery-editable');
-    this.containerEl.querySelector(':scope > .simple-gallery-settings-button')?.remove();
+    this.containerEl.querySelector('.simple-gallery-toolbar')?.remove();
     this.containerEl.querySelectorAll('.simple-gallery-caption-empty').forEach((el) => el.remove());
-    this.containerEl.querySelectorAll('.simple-gallery-section-insert').forEach((el) => el.remove());
-    this.containerEl.querySelectorAll('.simple-gallery-feature-toggle').forEach((el) => el.remove());
+    this.containerEl.querySelectorAll('.simple-gallery-item-controls').forEach((el) => el.remove());
     this.containerEl.querySelectorAll('.simple-gallery-item-menu').forEach((el) => el.remove());
+    this.containerEl.querySelectorAll('.simple-gallery-section-remove').forEach((el) => el.remove());
     // The 2x2 sizing itself (.simple-gallery-item-featured) is a visual part of
     // the gallery's content, not an editing affordance -- it stays in Reading Mode.
   }
@@ -763,17 +1124,20 @@ class GalleryRenderChild extends MarkdownRenderChild {
   }
 
   onunload(): void {
+    if (this.initializationFrame !== null) window.cancelAnimationFrame(this.initializationFrame);
+    this.initializationFrame = null;
     this.observer?.disconnect();
     this.observer = null;
+    this.animatedGridResizes.clear();
     this.plugin.galleryInstances.delete(this);
   }
 
   /**
-   * Native HTML5 drag-and-drop, scoped to reordering within a single
-   * section's grid -- no external library. A real drag (pointer movement
-   * while held) suppresses the following click, so this doesn't interfere
-   * with a plain click opening a lightbox plugin; only a genuine drag ever
-   * reaches these handlers.
+   * Native HTML5 drag-and-drop with no external library. Dropping within a
+   * section reorders its items; dropping onto an item in another section
+   * swaps those two photos. A real drag (pointer movement while held)
+   * suppresses the following click, so this doesn't interfere with a plain
+   * click opening a lightbox plugin.
    */
   private wireDragAndDrop(grid: HTMLElement, sectionIndex: number): void {
     const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
@@ -783,6 +1147,10 @@ class GalleryRenderChild extends MarkdownRenderChild {
       itemEl.addClass('simple-gallery-draggable');
 
       this.registerDomEvent(itemEl, 'dragstart', (evt: DragEvent) => {
+        if ((evt.target as HTMLElement).closest('button, input')) {
+          evt.preventDefault();
+          return;
+        }
         this.draggedSectionIndex = sectionIndex;
         this.draggedItemIndex = itemIndex;
         itemEl.addClass('simple-gallery-dragging');
@@ -791,7 +1159,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
       });
 
       this.registerDomEvent(itemEl, 'dragover', (evt: DragEvent) => {
-        if (this.draggedSectionIndex !== sectionIndex) return;
+        if (this.draggedSectionIndex < 0 || this.draggedItemIndex < 0) return;
         evt.preventDefault();
         if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'move';
         itemEl.addClass('simple-gallery-drop-target');
@@ -804,16 +1172,35 @@ class GalleryRenderChild extends MarkdownRenderChild {
       this.registerDomEvent(itemEl, 'drop', (evt: DragEvent) => {
         evt.preventDefault();
         itemEl.removeClass('simple-gallery-drop-target');
+        const fromSectionIndex = this.draggedSectionIndex;
         const fromIndex = this.draggedItemIndex;
-        if (this.draggedSectionIndex !== sectionIndex || fromIndex === itemIndex || fromIndex < 0) return;
+        if (fromSectionIndex < 0 || fromIndex < 0) return;
 
-        grid.insertBefore(items[fromIndex], fromIndex < itemIndex ? itemEl.nextSibling : itemEl);
-        void this.commitReorder(sectionIndex, fromIndex, itemIndex);
+        if (fromSectionIndex === sectionIndex) {
+          if (fromIndex === itemIndex) return;
+          grid.insertBefore(items[fromIndex], fromIndex < itemIndex ? itemEl.nextSibling : itemEl);
+          void this.commitReorder(sectionIndex, fromIndex, itemIndex);
+          return;
+        }
+
+        const sourceGrid = this.grids.find((candidate) =>
+          Number(candidate.dataset.sectionIndex ?? '-1') === fromSectionIndex
+        );
+        const sourceItem = sourceGrid?.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item')[fromIndex];
+        if (!sourceItem) return;
+
+        const marker = document.createComment('simple-gallery-swap');
+        sourceItem.replaceWith(marker);
+        itemEl.replaceWith(sourceItem);
+        marker.replaceWith(itemEl);
+        this.scheduleRecompute(this.grids);
+        void this.commitSectionSwap(fromSectionIndex, fromIndex, sectionIndex, itemIndex);
       });
 
       this.registerDomEvent(itemEl, 'dragend', () => {
         itemEl.removeClass('simple-gallery-dragging');
-        grid.querySelectorAll('.simple-gallery-drop-target').forEach((el) => el.removeClass('simple-gallery-drop-target'));
+        this.containerEl.querySelectorAll('.simple-gallery-drop-target')
+          .forEach((el) => el.removeClass('simple-gallery-drop-target'));
         this.draggedSectionIndex = -1;
         this.draggedItemIndex = -1;
       });
@@ -832,6 +1219,23 @@ class GalleryRenderChild extends MarkdownRenderChild {
     await this.writeBlockToFile();
   }
 
+  private async commitSectionSwap(
+    fromSectionIndex: number,
+    fromItemIndex: number,
+    toSectionIndex: number,
+    toItemIndex: number
+  ): Promise<void> {
+    const fromSection = this.block.sections[fromSectionIndex];
+    const toSection = this.block.sections[toSectionIndex];
+    const fromItem = fromSection?.items[fromItemIndex];
+    const toItem = toSection?.items[toItemIndex];
+    if (!fromSection || !toSection || !fromItem || !toItem) return;
+
+    fromSection.items[fromItemIndex] = toItem;
+    toSection.items[toItemIndex] = fromItem;
+    await this.writeBlockToFile();
+  }
+
   private async commitCaptionChange(sectionIndex: number, itemIndex: number, caption: string): Promise<void> {
     const item = this.block.sections[sectionIndex]?.items[itemIndex];
     if (!item) return;
@@ -839,9 +1243,22 @@ class GalleryRenderChild extends MarkdownRenderChild {
     await this.writeBlockToFile();
   }
 
+  private async commitPhotoCaptionOverrides(
+    sectionIndex: number,
+    itemIndex: number,
+    overrides: PhotoCaptionOverrides
+  ): Promise<void> {
+    const item = this.block.sections[sectionIndex]?.items[itemIndex];
+    if (!item) return;
+    item.captionFont = overrides.captionFont;
+    item.captionLines = overrides.captionLines;
+    item.captionAlign = overrides.captionAlign;
+    await this.writeBlockToFile();
+  }
+
   private async commitSectionLabelChange(sectionIndex: number, label: string): Promise<void> {
     const section = this.block.sections[sectionIndex];
-    if (!section || !label) return;
+    if (!section) return;
     section.label = label;
     await this.writeBlockToFile();
   }
@@ -869,6 +1286,31 @@ class GalleryRenderChild extends MarkdownRenderChild {
     await this.writeBlockToFile();
   }
 
+  /**
+   * Removes only the grouping boundary, never its photos. The removed
+   * section is merged into its previous neighbor (or the following neighbor
+   * when removing the first section), preserving the gallery's visual order.
+   */
+  private async commitRemoveSection(sectionIndex: number): Promise<void> {
+    const section = this.block.sections[sectionIndex];
+    if (!section) return;
+
+    if (this.block.sections.length === 1) {
+      section.label = undefined;
+      section.note = undefined;
+    } else if (sectionIndex > 0) {
+      const previous = this.block.sections[sectionIndex - 1];
+      previous.items.push(...section.items);
+      this.block.sections.splice(sectionIndex, 1);
+    } else {
+      const next = this.block.sections[1];
+      next.items.unshift(...section.items);
+      this.block.sections.splice(0, 1);
+    }
+
+    await this.writeBlockToFile();
+  }
+
   /** Applies the (already default-filtered) overrides chosen in GallerySettingsModal. */
   private async commitOverrides(overrides: GalleryOverrides): Promise<void> {
     this.block.layout = overrides.layout;
@@ -877,7 +1319,14 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.block.showCaptions = overrides.showCaptions;
     this.block.captionFont = overrides.captionFont;
     this.block.captionLines = overrides.captionLines;
+    this.block.captionAlign = overrides.captionAlign;
     await this.writeBlockToFile();
+  }
+
+  /** Applies modal values to this rendered gallery without touching the note. */
+  private previewOverrides(overrides: GalleryOverrides): void {
+    applyBlockOverrides(this.containerEl, { sections: this.block.sections, ...overrides });
+    this.scheduleRecompute(this.grids);
   }
 
   /**
@@ -900,6 +1349,32 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
+  /** Removes this fenced gallery block from its note, never its image files. */
+  private async removeGalleryFromFile(): Promise<void> {
+    const info = this.ctx.getSectionInfo(this.containerEl);
+    const file = this.app.vault.getAbstractFileByPath(this.ctx.sourcePath);
+    if (!info || !(file instanceof TFile)) return;
+
+    await this.app.vault.process(file, (data) => {
+      const lines = data.split('\n');
+      let start = info.lineStart;
+      let end = info.lineEnd;
+      const blankBefore = start > 0 && lines[start - 1].trim() === '';
+      const blankAfter = end + 1 < lines.length && lines[end + 1].trim() === '';
+
+      // When the block is isolated by blank lines, consume exactly one of
+      // them so the surrounding prose keeps one clean separator, not two.
+      if (blankBefore && blankAfter) end++;
+      else if (start === 0 && blankAfter) end++;
+      else if (end === lines.length - 1 && blankBefore) start--;
+
+      lines.splice(start, end - start + 1);
+      return lines.join('\n');
+    });
+
+    new Notice('Gallery removed. Image files were not deleted.');
+  }
+
   /**
    * Click-to-edit for a caption: clicking the caption (or its "+ Add
    * caption" placeholder) swaps it for a text input pre-filled with the
@@ -914,7 +1389,16 @@ class GalleryRenderChild extends MarkdownRenderChild {
           this.makeEditable(captionEl, isPlaceholder ? '' : captionEl.getText(), 'Add a caption…', (value) => {
             void this.commitCaptionChange(sectionIndex, itemIndex, value);
           });
+          this.animateGridResize(grid);
         });
+
+        if (captionEl.hasClass('simple-gallery-caption-empty')) {
+          const itemEl = captionEl.closest<HTMLElement>('.simple-gallery-item');
+          if (itemEl) {
+            this.registerDomEvent(itemEl, 'mouseenter', () => this.animateGridResize(grid));
+            this.registerDomEvent(itemEl, 'mouseleave', () => this.animateGridResize(grid));
+          }
+        }
       });
   }
 
@@ -940,7 +1424,19 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
-  /** Wires each item's "★" button, which marks it as the section's one featured image. */
+  /** Wires each section's non-destructive "Remove section" action. */
+  private wireSectionRemoveButtons(): void {
+    this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-section-remove').forEach((button) => {
+      const sectionIndex = Number(button.dataset.sectionIndex ?? '-1');
+      if (sectionIndex < 0) return;
+      this.registerDomEvent(button, 'click', (evt: MouseEvent) => {
+        evt.stopPropagation();
+        void this.commitRemoveSection(sectionIndex);
+      });
+    });
+  }
+
+  /** Wires each item's independent "★" larger-photo toggle. */
   private wireFeatureToggle(grid: HTMLElement, sectionIndex: number): void {
     const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
     items.forEach((itemEl, itemIndex) => {
@@ -953,6 +1449,33 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
+  /** Opens font, line-length, and alignment settings scoped to one photo caption. */
+  private wirePhotoSettingsButtons(grid: HTMLElement, sectionIndex: number): void {
+    const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
+    items.forEach((itemEl, itemIndex) => {
+      const button = itemEl.querySelector<HTMLElement>('.simple-gallery-photo-settings');
+      const item = this.block.sections[sectionIndex]?.items[itemIndex];
+      if (!button || !item) return;
+
+      this.registerDomEvent(button, 'click', (evt: MouseEvent) => {
+        evt.stopPropagation();
+        new PhotoCaptionSettingsModal(
+          this.app,
+          item,
+          (overrides) => {
+            applyItemCaptionOverrides(itemEl, { ...item, ...overrides });
+            this.scheduleRecompute(this.grids);
+          },
+          (overrides) => void this.commitPhotoCaptionOverrides(sectionIndex, itemIndex, overrides),
+          () => {
+            applyItemCaptionOverrides(itemEl, item);
+            this.scheduleRecompute(this.grids);
+          }
+        ).open();
+      });
+    });
+  }
+
   /**
    * Wires each item's small "..." icon: toggles that item's expanded/active
    * state, which reveals the same controls hovering would -- the
@@ -961,33 +1484,61 @@ class GalleryRenderChild extends MarkdownRenderChild {
    * outside" listener registered in onload() collapses it otherwise.
    */
   private wireItemMenuToggle(grid: HTMLElement): void {
-    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item > .simple-gallery-item-menu')
+    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item .simple-gallery-item-menu')
       .forEach((menuButton) => {
+        // Keep the draggable figure and CodeMirror from claiming the initial
+        // press before it can become a button click, especially on touch and
+        // trackpads where a tiny movement is otherwise enough to start a drag.
+        this.registerDomEvent(menuButton, 'pointerdown', (evt: PointerEvent) => {
+          evt.stopImmediatePropagation();
+        }, { capture: true });
+
         this.registerDomEvent(menuButton, 'click', (evt: MouseEvent) => {
-          evt.stopPropagation();
-          const item = menuButton.parentElement;
+          evt.preventDefault();
+          evt.stopImmediatePropagation();
+          const item = menuButton.closest<HTMLElement>('.simple-gallery-item');
           if (!item) return;
           const wasActive = item.hasClass('simple-gallery-item-active');
-          this.containerEl.querySelectorAll('.simple-gallery-item-active')
-            .forEach((el) => el.removeClass('simple-gallery-item-active'));
-          if (!wasActive) item.addClass('simple-gallery-item-active');
-        });
+          this.closeItemControls();
+          if (!wasActive) {
+            this.containerEl.addClass('simple-gallery-selected');
+            item.querySelector<HTMLElement>('.simple-gallery-item-controls')
+              ?.addClass('simple-gallery-item-controls-open');
+            item.addClass('simple-gallery-item-active');
+            menuButton.setAttribute('aria-expanded', 'true');
+            menuButton.setAttribute('aria-label', 'Hide controls for this photo');
+          }
+          this.animateGridResize(grid);
+        }, { capture: true });
       });
   }
 
+  private closeItemControls(): void {
+    const hadActiveItem = this.containerEl.querySelector(
+      '.simple-gallery-item-active, .simple-gallery-item-controls-open'
+    ) !== null;
+    this.containerEl.querySelectorAll('.simple-gallery-item-active')
+      .forEach((el) => el.removeClass('simple-gallery-item-active'));
+    this.containerEl.querySelectorAll('.simple-gallery-item-controls-open')
+      .forEach((el) => el.removeClass('simple-gallery-item-controls-open'));
+    this.containerEl.querySelectorAll('.simple-gallery-item-menu')
+      .forEach((el) => {
+        el.setAttribute('aria-expanded', 'false');
+        el.setAttribute('aria-label', 'Show controls for this photo');
+      });
+    if (hadActiveItem) this.grids.forEach((grid) => this.animateGridResize(grid));
+  }
+
   /**
-   * Marks this item as the section's featured image (2x-sized, everything
-   * else flows around it), clearing any previously-featured item in the
-   * same section -- at most one per section.
+   * Independently toggles this item's featured/larger state. Multiple items
+   * may be enlarged; CSS Grid naturally flows the remaining cells around them.
    */
   private async commitFeatureToggle(sectionIndex: number, itemIndex: number): Promise<void> {
     const section = this.block.sections[sectionIndex];
     const item = section?.items[itemIndex];
     if (!section || !item) return;
 
-    const wasFeatured = item.featured === true;
-    for (const other of section.items) other.featured = undefined;
-    if (!wasFeatured) item.featured = true;
+    item.featured = item.featured ? undefined : true;
 
     await this.writeBlockToFile();
   }
@@ -1059,6 +1610,23 @@ class GalleryRenderChild extends MarkdownRenderChild {
     });
   }
 
+  /** Tracks the caption-row transition so Masonry grows and shrinks with it. */
+  private animateGridResize(grid: HTMLElement): void {
+    const endTime = performance.now() + 220;
+    const alreadyAnimating = this.animatedGridResizes.has(grid);
+    this.animatedGridResizes.set(grid, endTime);
+    if (alreadyAnimating) return;
+
+    const tick = (): void => {
+      const currentEndTime = this.animatedGridResizes.get(grid);
+      if (currentEndTime === undefined) return;
+      this.recomputeGrid(grid);
+      if (performance.now() < currentEndTime) window.requestAnimationFrame(tick);
+      else this.animatedGridResizes.delete(grid);
+    };
+    window.requestAnimationFrame(tick);
+  }
+
   /**
    * Measures each item's actual laid-out content height (image at its natural
    * aspect ratio, plus a caption if shown) rather than deriving height purely
@@ -1088,6 +1656,7 @@ export default class SimpleGalleryPlugin extends Plugin {
   settings: SimpleGallerySettings = DEFAULT_SETTINGS;
   /** Every currently-rendered gallery, so a settings change can nudge each one to re-measure. */
   readonly galleryInstances = new Set<GalleryRenderChild>();
+  private initialRenderTimer: number | null = null;
 
   async onload(): Promise<void> {
     const stored = (await this.loadData()) as Partial<SimpleGallerySettings> | null;
@@ -1103,6 +1672,14 @@ export default class SimpleGalleryPlugin extends Plugin {
         ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, this));
       }
     );
+
+    // Live Preview intentionally shows a fenced block's source while the
+    // cursor is inside it. Obsidian can restore that cursor position when a
+    // note opens, making a gallery appear not to render until the user clicks
+    // elsewhere. Release only that initial, restored cursor from a gallery
+    // block so the rendered gallery is visible immediately.
+    this.registerEvent(this.app.workspace.on('file-open', () => this.scheduleInitialGalleryRender()));
+    this.app.workspace.onLayoutReady(() => this.scheduleInitialGalleryRender());
 
     this.addCommand({
       id: 'convert-to-gallery',
@@ -1136,6 +1713,7 @@ export default class SimpleGalleryPlugin extends Plugin {
   }
 
   onunload(): void {
+    if (this.initialRenderTimer !== null) window.clearTimeout(this.initialRenderTimer);
     document.body.classList.remove(
       'simple-gallery-hide-captions',
       'simple-gallery-layout-grid',
@@ -1144,11 +1722,56 @@ export default class SimpleGalleryPlugin extends Plugin {
     );
     document.body.style.removeProperty('--simple-gallery-min-size');
     document.body.style.removeProperty('--simple-gallery-gap');
+    document.body.style.removeProperty('--simple-gallery-caption-align');
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     this.applyAppearanceSettings();
+  }
+
+  private scheduleInitialGalleryRender(): void {
+    if (this.initialRenderTimer !== null) window.clearTimeout(this.initialRenderTimer);
+    this.initialRenderTimer = window.setTimeout(() => {
+      this.initialRenderTimer = null;
+      this.releaseCursorFromGalleryBlock();
+    }, 50);
+  }
+
+  private releaseCursorFromGalleryBlock(): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view || view.getMode() !== 'source') return;
+    if (!view.containerEl.querySelector('.markdown-source-view.is-live-preview')) return;
+
+    const editor = view.editor;
+    const cursorLine = editor.getCursor().line;
+    let openingLine = -1;
+    const cursorIsClosingFence = /^```\s*$/.test(editor.getLine(cursorLine).trim());
+    const scanFromLine = cursorIsClosingFence ? cursorLine - 1 : cursorLine;
+
+    for (let line = scanFromLine; line >= 0; line--) {
+      const text = editor.getLine(line).trim();
+      if (!text.startsWith('```')) continue;
+      if (/^```simple-gallery(?:\s.*)?$/i.test(text)) openingLine = line;
+      break;
+    }
+    if (openingLine < 0) return;
+
+    let closingLine = -1;
+    for (let line = openingLine + 1; line <= editor.lastLine(); line++) {
+      if (/^```\s*$/.test(editor.getLine(line).trim())) {
+        closingLine = line;
+        break;
+      }
+    }
+    if (closingLine < cursorLine) return;
+
+    if (closingLine < editor.lastLine()) {
+      editor.setCursor({ line: closingLine + 1, ch: 0 });
+    } else if (openingLine > 0) {
+      const previousLine = openingLine - 1;
+      editor.setCursor({ line: previousLine, ch: editor.getLine(previousLine).length });
+    }
   }
 
   /**
@@ -1165,6 +1788,7 @@ export default class SimpleGalleryPlugin extends Plugin {
   private applyAppearanceSettings(): void {
     document.body.style.setProperty('--simple-gallery-min-size', `${this.settings.minThumbnailSize}px`);
     document.body.style.setProperty('--simple-gallery-gap', `${this.settings.gapSize}px`);
+    document.body.style.setProperty('--simple-gallery-caption-align', this.settings.captionAlign);
     document.body.classList.toggle('simple-gallery-hide-captions', !this.settings.showCaptions);
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
     document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
@@ -1211,7 +1835,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
           defaultValue: DEFAULT_SETTINGS.minThumbnailSize,
           min: 80,
           max: 400,
-          step: 10
+          step: 5
         }
       },
       {
@@ -1260,6 +1884,21 @@ class SimpleGallerySettingTab extends PluginSettingTab {
             single: 'Single line'
           }
         }
+      },
+      {
+        name: 'Caption alignment',
+        desc: 'Horizontal text alignment for image captions.',
+        control: {
+          type: 'dropdown',
+          key: 'captionAlign',
+          defaultValue: DEFAULT_SETTINGS.captionAlign,
+          options: {
+            left: 'Left',
+            center: 'Center',
+            right: 'Right',
+            justify: 'Justified'
+          }
+        }
       }
     ];
   }
@@ -1272,6 +1911,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       case 'showCaptions': return this.plugin.settings.showCaptions;
       case 'captionFont': return this.plugin.settings.captionFont;
       case 'captionLines': return this.plugin.settings.captionLines;
+      case 'captionAlign': return this.plugin.settings.captionAlign;
       default: return undefined;
     }
   }
@@ -1295,6 +1935,9 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         break;
       case 'captionLines':
         if (value === 'full' || value === 'single') this.plugin.settings.captionLines = value;
+        break;
+      case 'captionAlign':
+        if (typeof value === 'string' && isCaptionAlign(value)) this.plugin.settings.captionAlign = value;
         break;
       default:
         return;
@@ -1327,7 +1970,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       .setName('Minimum thumbnail size')
       .setDesc('Smallest width, in pixels, a thumbnail can shrink to before the grid wraps to fewer columns.')
       .addSlider((slider) => slider
-        .setLimits(80, 400, 10)
+        .setLimits(80, 400, 5)
         .setValue(this.plugin.settings.minThumbnailSize)
         .onChange(async (value) => {
           this.plugin.settings.minThumbnailSize = value;
@@ -1376,6 +2019,20 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.captionLines)
         .onChange(async (value) => {
           this.plugin.settings.captionLines = value === 'single' ? 'single' : 'full';
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Caption alignment')
+      .setDesc('Horizontal text alignment for image captions.')
+      .addDropdown((dropdown) => dropdown
+        .addOption('left', 'Left')
+        .addOption('center', 'Center')
+        .addOption('right', 'Right')
+        .addOption('justify', 'Justified')
+        .setValue(this.plugin.settings.captionAlign)
+        .onChange(async (value) => {
+          this.plugin.settings.captionAlign = isCaptionAlign(value) ? value : 'center';
           await this.plugin.saveSettings();
         }));
   }

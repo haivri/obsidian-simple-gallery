@@ -26,31 +26,32 @@ Before submitting a change:
    preserved.
 10. Test clicking to edit a caption (both an existing one and the "+ add caption"
     placeholder), clearing a caption to remove it, clicking to rename a section, and
-    confirm an empty section name is rejected rather than saved. Confirm Escape cancels
-    without writing anything, and an unchanged value on blur doesn't trigger a write.
+    confirm an empty section name remains a transparent, editable section boundary. Confirm
+    Escape cancels without writing anything, and an unchanged value on blur doesn't trigger
+    a write.
 11. Confirm Reading Mode never shows the "+ add caption" placeholder, the section-insert
-    buttons, the settings gear button, or a draggable cursor on hover — it should be
+    buttons, the gallery toolbar, photo controls, or a draggable cursor on hover — it should be
     indistinguishable from a static image grid. Confirm all of that DOES appear in Live
     Preview.
 12. Test hovering a photo to reveal "+ section above"/"+ section below", including at the
     very first and last photo of a section (should still work, producing an empty section
     on the boundary side rather than being disabled).
-13. Test the Caption font and Caption length settings (and their `caption-font:`/
-    `caption-lines:` per-gallery overrides), including with a caption long enough to wrap
-    or truncate.
-14. Test the gallery settings gear button: open it on a gallery with no overrides yet
+13. Test caption font, length, and alignment globally, per gallery, and per photo, including
+    a caption long enough to wrap or truncate. Confirm each per-photo **Aa** option can return
+    to **Use gallery setting** without leaving an override line behind.
+14. Test the contextual gallery toolbar: it should hide at rest and appear on hover, focus,
+    or selection. Open settings on a gallery with no overrides yet
     (every control should show the current global default), change only one control and
     save (only that field should be written), and change nothing at all and save (no
-    override lines should appear). Test Cancel discards changes.
-15. Test the ★ feature toggle: feature a photo, confirm it gets the bigger cell in both
-    Masonry and Grid layout, confirm it still shows in Reading Mode, then feature a
-    different photo in the same section and confirm the first one is un-featured. Confirm
-    a featured photo in one section doesn't affect another section.
-16. Test the per-item "⋯" icon: tapping it should reveal that photo's controls (caption,
-    section-insert, feature toggle) without needing to hover; tapping elsewhere, or another
-    photo's icon, should close it again. Confirm this icon (unlike the others) is visible
-    even without hovering, and confirm it's stripped along with everything else in Reading
-    Mode.
+    override lines should appear). Test Cancel discards changes. Test **Remove gallery** both
+    ways: Cancel keeps the block; confirmation removes the block but not any image files.
+15. Test the ★ larger-photo toggle on several photos in the same section. Confirm every
+    starred photo gets a bigger cell in Masonry and Grid, all remain larger in Reading Mode,
+    and the remaining photos reflow without overlap.
+16. On mobile, test the per-item "⋯" icon: it should open a labeled four-action panel without
+    hover; tapping elsewhere or another photo's icon should close it. On desktop, confirm the
+    icon is absent and the same controls appear on hover. Confirm all controls are stripped
+    in Reading Mode.
 17. **Important**: after rebuilding (`npm run build`), Obsidian does not hot-reload the
     plugin automatically — reload the app, or disable/re-enable Simple Gallery under
     Community Plugins, before testing, or you'll be looking at stale behavior.

@@ -4,14 +4,10 @@ Turn a simple list of image embeds into a responsive, portfolio-style photo gall
 frontmatter, no per-image HTML, just a short list in a code block. Already dropped some
 images into a note? A single command turns them into a gallery on the spot.
 
-Simple Gallery is deliberately small and local-first. It does not modify your notes,
-collect telemetry, or make network requests.
+Simple Gallery is deliberately small and local-first. Its editing controls only rewrite
+the gallery block you act on; it does not collect telemetry or make network requests.
 
 ## See it in action
-
-<p align="center">
-  <img src="assets/simple-gallery-convert-command.png" alt="The Convert selection to gallery command turning a plain list of dropped-in images into a simple-gallery block" width="900">
-</p>
 
 ### Drop in images, run a command, done
 
@@ -19,45 +15,26 @@ Drag a handful of photos into a note — with or without selecting them, with or
 list bullets — and run **Convert selection to gallery** from the command palette. No
 selection at all? It picks up the paragraph of images around your cursor automatically.
 
-<p align="center">
-  <img src="assets/simple-gallery-reorder.png" alt="Clicking and dragging a thumbnail to reorder a gallery, with the underlying code block updating to match" width="900">
-</p>
-
 ### Reorder by dragging
 
 Click and drag a thumbnail to a new spot in the same gallery. The code block's source
 updates immediately to match — no manual list-editing needed.
 
-<p align="center">
-  <img src="assets/simple-gallery-inline-edit.png" alt="Clicking a caption or section title directly in the rendered gallery to edit it in place" width="900">
-</p>
-
 ### Click to edit captions and section names
 
-No need to open the code block at all: click any caption (or the "+ add caption"
+No need to open the code block at all: click any caption (or the "Add a caption"
 placeholder on a photo that doesn't have one yet) or a section's name to edit it right
-there. Press Enter or click away to save, Escape to cancel.
-
-<p align="center">
-  <img src="assets/simple-gallery-masonry.png" alt="Simple Gallery rendering a Brussels sprouts recipe with the default Masonry layout" width="900">
-</p>
+there. Press Enter or click away to save, Escape to cancel. A section name may be left
+blank; its transparent header row still preserves the section break and remains clickable.
 
 ### An artistic, photographer-style default
 
 Masonry sizes each thumbnail from its own photo's proportions — tall photos get a taller
 cell, wide photos a wider one — with no manual tagging required.
 
-<p align="center">
-  <img src="assets/simple-gallery-grid.png" alt="The same gallery rendered with the uniform Grid layout" width="900">
-</p>
-
 ### A clean, uniform alternative
 
 Switch to the **Grid** layout in settings for evenly cropped, uniform tiles instead.
-
-<p align="center">
-  <img src="assets/simple-gallery-settings.png" alt="Simple Gallery settings showing the Layout, thumbnail size, gap, and caption controls" width="900">
-</p>
 
 ## Features
 
@@ -65,16 +42,16 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
 - A **Convert selection to gallery** command turns existing images already in a note —
   bulleted or not, selected or not — straight into a gallery block. An **Insert empty
   gallery block** command starts one from scratch.
-- Reorder photos by clicking and dragging a thumbnail, edit captions or section names by
-  clicking them, and feature one photo per section as a bigger visual focus — the note's
-  underlying code block updates to match, no manual editing required.
-- Every photo's controls are reachable by hover (desktop) or by tapping the small, always-
-  visible "⋯" icon in its corner — no feature is hover-only, so everything works on touch
-  devices too.
+- Reorder photos by clicking and dragging a thumbnail, swap photos between sections by
+  dragging one onto another, edit captions or section names by clicking them, and feature
+  any number of photos as bigger visual cells — the note's underlying code block updates
+  to match, no manual editing required.
+- Photo controls appear on hover on desktop. On mobile, the ⋯ button opens a labeled action
+  panel so section, sizing, and caption controls remain discoverable without hover.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.
-- Optional per-image captions, an optional featured photo per section, optional `section:`
+- Optional per-image captions, any number of featured photos, optional `section:`
   groupings, and an optional intro blurb — all opt-in; a plain list of images works with
   none of them.
 - Default **Masonry** layout sizes each thumbnail from its own photo's natural
@@ -110,10 +87,10 @@ block. Or skip typing it out entirely — see **Commands** below.
 Add an optional caption on the line directly below an item, indented and prefixed with
 `caption:`. Captions are entirely optional — leave them off any item you don't want one for.
 
-### Featuring one photo
+### Featuring larger photos
 
-Mark one photo per section as the visual focus with an indented `featured: true` line —
-same shape as `caption:`, and an item can have both:
+Mark any photo as a larger visual focus with an indented `featured: true` line — same shape
+as `caption:`, and an item can have both:
 
     ```simple-gallery
     - ![[brussels-1.jpg]]
@@ -122,45 +99,57 @@ same shape as `caption:`, and an item can have both:
     - ![[brussels-2.jpg]]
     ```
 
-The featured photo gets a bigger cell (roughly 2×2) and everything else in that section
-flows around it — masonry or grid alike. At most one per section; marking a second photo
-featured un-marks the first. Unlike captions and sections, this is easiest to set with the
-★ button described below rather than by hand, since it also handles clearing the previous
-one for you.
+Each featured photo gets a bigger cell (roughly 2×2) and everything else in that section
+flows around it — masonry or grid alike. Star as many photos as the composition needs; each
+one is independent and the remaining cells reflow around all of them.
 
 ### Editing directly in the gallery
 
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
-Every photo's controls are reachable two ways: hovering it (nice on desktop), or tapping
-the small "⋯" icon in its corner, which stays faintly visible at all times — since touch
-devices have no hover state at all, that icon is what makes everything below reachable on
-a phone or tablet. Tapping it "pins" that photo's controls open; tapping elsewhere (or
-another photo's icon) closes it again.
+On desktop, hovering a photo reveals its controls directly; the ⋯ icon is intentionally
+hidden. On mobile, the ⋯ icon opens a labeled 2×2 action panel, making the same controls
+clear without relying on hover. Tapping elsewhere or opening another photo closes it.
 
-- **Reorder** — Click and drag any thumbnail to a new position. Dragging is scoped to one
-  section (or the whole gallery, if it has no sections) at a time; dragging an item into a
-  different section isn't supported.
-- **Edit a caption** — A photo's caption area reveals a "+ add caption" placeholder (or the
-  existing caption, always visible if it has one); click either to edit in place. Press
+- **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
+  Drag it onto a photo in another section to swap those two photos between sections.
+- **Edit a caption** — A photo's caption area reveals an "Add a caption" placeholder beneath
+  the photo (or the existing caption, always visible if it has one); click either to edit
+  in place. Press
   Enter or click elsewhere to save, Escape to cancel. Clearing the text removes the caption.
-- **Rename a section** — Click a section's name to edit it the same way. An empty name is
-  ignored rather than saved, so you can't accidentally blank one out.
+- **Rename a section** — Click a section's name to edit it the same way. Clearing the name
+  creates an unnamed section: the transparent header still keeps the next photos in their
+  own section and remains a clickable area if you want to name it again.
 - **Add a section** — A photo's corner reveals small "+ section above" / "+ section below"
   buttons; click one to split its section into two right there, with a "New section" label
   ready to rename. Splitting at the very first or last photo of a section creates an empty
   section on that side rather than being disabled — a rare, harmless edge case.
-- **Feature a photo** — The "★" button on a photo marks it as that section's one featured
-  image: a bigger cell (roughly 2×2) that the rest of the section's photos flow around,
-  masonry or grid alike. Featuring a different photo un-features the previous one — there's
-  only ever one per section. Unlike the other controls, the bigger cell itself shows in
-  Reading Mode too — it's a visual part of the gallery, not an editing affordance.
-- **Gallery settings** — Hover the gallery (or tap the gear icon, which also stays faintly
-  visible) to open the same Layout / thumbnail size / gap / captions / caption font /
-  caption length controls as the main Settings tab, scoped to just this gallery. A control
-  left matching the current global default doesn't get written as an override, so a gallery
-  you haven't customized stays clean either way.
+- **Remove a section** — Click **Remove section** beside its heading. Only the grouping and
+  section note are removed; its photos are kept in order and merged into the neighboring
+  section.
+- **Make photos larger** — Each "★" button independently toggles that photo's larger cell
+  (roughly 2×2). Multiple photos can be enlarged in the same section, with the rest flowing
+  around them. The larger cells also show in Reading Mode because sizing is presentation,
+  not an editing affordance.
+- **Photo caption settings** — The **Aa** control sets caption font, full/single-line length,
+  and alignment for only that photo. Each control can inherit the gallery setting or carry
+  its own override.
+- **Gallery settings** — Use the **⚙ Gallery settings** control in the toolbar above the
+  photos to open the same Layout / thumbnail size / gap / captions / caption font / caption
+  length / caption alignment controls as the main Settings tab, scoped to just this gallery.
+  **Reset to defaults** previews the current global defaults and removes this gallery's
+  overrides when saved. All changes preview live behind the modal; **Save** writes them to
+  the gallery, while **Cancel** or closing
+  the modal restores its original appearance. A control left matching the current global
+  default doesn't get written as an override, so a gallery you haven't customized stays
+  clean either way.
+- **Remove gallery** — The adjacent **Remove gallery** control asks for confirmation, then
+  removes only the fenced gallery block from the note. Referenced image files remain in the
+  vault untouched.
+
+The gallery toolbar is contextual: its settings and removal buttons appear while the
+gallery is hovered, keyboard-focused, or selected, and disappear when focus moves elsewhere.
 
 Every one of these rewrites just the affected part of the gallery's code block and leaves
 everything else — other galleries, the rest of the note — untouched.
@@ -186,7 +175,9 @@ blurb, plus an optional intro blurb for the whole gallery:
     ```
 
 Sections and notes are entirely optional. A block with no `section:` lines at all renders
-exactly like the plain list above — one flat gallery, no headings.
+exactly like the plain list above — one flat gallery, no headings. A bare `section:` line
+creates an unnamed section: its heading is transparent, but its photos still begin in a
+separate section row.
 
 ### Per-gallery overrides
 
@@ -201,6 +192,7 @@ image — the rest of the settings, and every other gallery in the vault, are un
     captions: false
     caption-font: monospace
     caption-lines: single
+    caption-align: left
     - ![[brussels-1.jpg]]
     - ![[brussels-2.jpg]]
     ```
@@ -213,18 +205,38 @@ image — the rest of the settings, and every other gallery in the vault, are un
   gallery only.
 - **`caption-lines: full` / `caption-lines: single`** — Overrides Caption length for this
   gallery only.
+- **`caption-align: left` / `caption-align: center` / `caption-align: right` /
+  `caption-align: justify`** — Overrides Caption alignment for this gallery only.
 
-All six are optional and independent — use just the ones you need. They only take effect
+All seven are optional and independent — use just the ones you need. They only take effect
 before the first `section:` or image line; anywhere after that, they're ignored like any
 other stray text.
+
+### Per-photo caption overrides
+
+The same three caption appearance fields can be indented beneath one image to override
+only that photo. The **Aa** photo control writes these for you:
+
+    ```simple-gallery
+    - ![[brussels-1.jpg]]
+      caption: A longer caption shown in full
+      caption-font: monospace
+      caption-lines: full
+      caption-align: right
+    - ![[brussels-2.jpg]]
+      caption: This photo inherits the gallery settings
+    ```
+
+Remove an indented field—or choose **Use gallery setting** in the photo modal—to resume
+inheriting that setting from the gallery.
 
 > **Note:** this syntax is YAML-inspired, not strict YAML. Real YAML treats a leading `!`
 > as a tag indicator and can't parse an unquoted `![[...]]` embed, which would force
 > quoting every image link. Simple Gallery instead uses a small, tolerant line parser built
-> specifically for this shape: a top-level `- ` line is an image, an indented `caption:`
-> line beneath it is that image's caption, a top-level `section:` line starts a labeled
-> group, and an indented `note:` line beneath a section (or at the very top of the block)
-> is a short blurb. Nothing else in the block is interpreted.
+> specifically for this shape: a top-level `- ` line is an image; indented `caption:`,
+> `featured:`, `caption-font:`, `caption-lines:`, and `caption-align:` lines belong to that
+> image; a top-level `section:` line starts a group; and an indented `note:` line beneath a
+> section (or at the very top of the block) is a short blurb. Nothing else is interpreted.
 
 ## Commands
 
@@ -248,7 +260,7 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles
   instead. Switching this instantly updates any gallery already open.
 - **Minimum thumbnail size** — Smallest width a thumbnail can shrink to before the grid
-  wraps to fewer columns.
+  wraps to fewer columns. Adjusts in fine 5-pixel increments.
 - **Gap between images** — Spacing between thumbnails.
 - **Show captions** — Display captions under images that have one. Turn this off for a
   clean, caption-free grid — useful for print or export — without removing captions from
@@ -257,6 +269,7 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   monospace font instead.
 - **Caption length** — Full (default) shows the whole caption, wrapping onto multiple
   lines if needed. Single line truncates a long caption with an ellipsis instead.
+- **Caption alignment** — Center (default), left, right, or fully justified caption text.
 
 Finer visual control (corner radius, hover effect, colors) is available through CSS
 custom properties rather than additional settings. See

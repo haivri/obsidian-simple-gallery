@@ -19,6 +19,7 @@ body {
   --simple-gallery-background: var(--background-secondary);
   --simple-gallery-caption-color: var(--text-muted);
   --simple-gallery-caption-font: inherit;
+  --simple-gallery-caption-align: center;
   --simple-gallery-border: var(--background-modifier-border);
   --simple-gallery-broken-color: var(--text-error);
 }
@@ -28,40 +29,55 @@ body {
   margin: 0.8em 0;
 }
 
-/*
- * Gear button (Live Preview only): opens GallerySettingsModal. Stays
- * faintly visible always, not just on hover -- touch devices have no hover
- * state at all, so a hover-only control would be permanently undiscoverable
- * on mobile. Brightens on hover for a nice desktop touch, but is reachable
- * without one.
- */
-.simple-gallery-settings-button {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 3;
-  width: 1.8em;
-  height: 1.8em;
+.simple-gallery-toolbar {
+  min-height: 2.1em;
+  margin-bottom: 0.35em;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 0.45em;
+}
+
+/* Kept in normal flow so neither it nor Obsidian's edit-block button covers a photo. */
+.simple-gallery-toolbar-button {
+  min-height: 1.8em;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  padding: 0.2em 0.65em;
   font-size: 0.85em;
   color: var(--text-muted);
   background: var(--background-secondary);
   border: 1px solid var(--simple-gallery-border);
   border-radius: 999px;
-  opacity: 0.45;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   cursor: pointer;
-  transition: opacity 120ms ease-out, color 120ms ease-out;
+  transition: visibility 120ms ease-out, opacity 120ms ease-out, color 120ms ease-out;
 }
 
-.simple-gallery-root:hover .simple-gallery-settings-button {
+.simple-gallery-root:hover .simple-gallery-toolbar-button,
+.simple-gallery-root:focus-within .simple-gallery-toolbar-button,
+.simple-gallery-root.simple-gallery-selected .simple-gallery-toolbar-button {
+  visibility: visible;
   opacity: 0.85;
+  pointer-events: auto;
 }
 
-.simple-gallery-settings-button:hover {
+.simple-gallery-toolbar-button:hover {
   opacity: 1;
   color: var(--text-normal);
+}
+
+.simple-gallery-remove-button:hover {
+  color: var(--text-error);
+  border-color: color-mix(in srgb, var(--text-error) 55%, var(--simple-gallery-border));
+}
+
+.simple-gallery-destructive-button {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
 }
 
 .simple-gallery-intro,
@@ -81,10 +97,50 @@ body {
 }
 
 .simple-gallery-section-title {
-  margin: 0 0 0.2em;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 1.4em;
+  margin: 0;
   font-size: 0.95em;
   font-weight: 600;
   color: var(--text-normal);
+}
+
+/*
+ * A bare `section:` is a real boundary, not a missing value. Keep its header
+ * row in normal flow so the next grid starts on its own line, while leaving
+ * the title itself completely transparent. The full-width empty h4 remains
+ * a click target in Live Preview, so it can be named again later.
+ */
+.simple-gallery-section-title-empty {
+  color: transparent;
+}
+
+.simple-gallery-section-header {
+  min-height: 1.9em;
+  margin: 0 0 0.25em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+
+.simple-gallery-section-remove {
+  flex: 0 0 auto;
+  padding: 0.15em 0.55em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--simple-gallery-border);
+  border-radius: 999px;
+  font-size: 0.7em;
+  line-height: 1.4;
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.simple-gallery-section-remove:hover {
+  color: var(--text-error);
+  opacity: 1;
 }
 
 /* --- Grid: Masonry (default) --- */
@@ -99,8 +155,8 @@ body {
 }
 
 /*
- * The one featured image per section (see "featured: true" in the README):
- * spans 2 columns. In Masonry, that's all it needs -- the item's own
+ * Each featured image (see "featured: true" in the README) spans 2 columns.
+ * Any number of items may be featured. In Masonry, that's all they need -- each item's own
  * row-span is measured from its actual rendered scrollHeight (recomputeGrid
  * in main.ts), so a photo that's twice as wide naturally comes out roughly
  * twice as tall too, with no special-casing required. In uniform Grid mode,
@@ -128,6 +184,11 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
+.simple-gallery-photo {
+  position: relative;
+  overflow: hidden;
+}
+
 .simple-gallery-img {
   display: block;
   width: 100%;
@@ -142,41 +203,41 @@ body {
   line-height: 1.3;
   color: var(--simple-gallery-caption-color);
   font-family: var(--simple-gallery-caption-font, inherit);
-  text-align: center;
+  text-align: var(--simple-gallery-caption-align, center);
 }
 
 /*
- * The "+ add caption" placeholder is stripped out entirely in Reading Mode
- * (see GalleryRenderChild.stripInteractiveMarkup). In Live Preview it sits
- * absolutely positioned over the bottom of the photo -- not in normal flow
- * like a real caption -- specifically so it never affects the item's own
- * height. Masonry's row-span is computed from the item's collapsed-state
- * scrollHeight; anything added here that took up flow space would need a
- * grid cell taller than what was actually measured, and get clipped by the
- * item's own overflow:hidden. Positioning it as a hover-revealed overlay
- * instead sidesteps that entirely -- it slides up from the bottom edge on
- * hover and never changes the item's box height.
+ * The "Add a caption" placeholder is stripped out in Reading Mode. In
+ * Live Preview it occupies the same normal-flow row a real caption would,
+ * expanding downward beneath the photo. GalleryRenderChild follows this
+ * short transition and updates the Masonry row span as the row opens/closes.
  */
 .simple-gallery-caption-empty {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  box-sizing: border-box;
+  max-height: 0;
   margin: 0;
-  padding: 0.4em 0.6em;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
-  color: #fff;
+  padding: 0 0.5em;
+  overflow: hidden;
+  color: var(--simple-gallery-caption-color);
   text-align: center;
   font-style: italic;
-  transform: translateY(100%);
+  transform: translateY(-0.35em);
   opacity: 0;
-  transition: transform 160ms ease-out, opacity 160ms ease-out;
+  pointer-events: none;
+  transition:
+    max-height 160ms ease-out,
+    padding 160ms ease-out,
+    transform 160ms ease-out,
+    opacity 160ms ease-out;
 }
 
 .simple-gallery-item:hover .simple-gallery-caption-empty,
 .simple-gallery-item-active .simple-gallery-caption-empty {
+  max-height: 3em;
+  padding: 0.35em 0.5em;
   transform: translateY(0);
   opacity: 1;
+  pointer-events: auto;
 }
 
 .simple-gallery-edit-input {
@@ -227,32 +288,62 @@ body {
   cursor: text;
 }
 
-/* --- Section-insert buttons (Live Preview only; hover-revealed) --- */
+/* --- Per-photo control panel (Live Preview only; hover/tap-revealed) --- */
+
+.simple-gallery-item-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: block;
+  padding: 0;
+  color: #fff;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+.simple-gallery-item:hover .simple-gallery-item-controls,
+.simple-gallery-item-active .simple-gallery-item-controls,
+.simple-gallery-item-controls-open {
+  opacity: 1;
+}
+
+/* The menu click writes this class on the panel itself. Keep it authoritative
+ * even when a theme or snippet overrides the hover/ancestor selectors. */
+.simple-gallery-item-controls.simple-gallery-item-controls-open {
+  opacity: 1 !important;
+}
+
+.simple-gallery-item-controls > button {
+  pointer-events: none;
+}
+
+.simple-gallery-item:hover .simple-gallery-item-controls > button,
+.simple-gallery-item-active .simple-gallery-item-controls > button,
+.simple-gallery-item-controls-open > button {
+  pointer-events: auto;
+}
+
+.simple-gallery-item-controls.simple-gallery-item-controls-open > button {
+  pointer-events: auto !important;
+}
 
 .simple-gallery-section-insert {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 2;
   padding: 0.15em 0.6em;
   font-size: 0.68em;
   line-height: 1.4;
+  white-space: nowrap;
   color: var(--text-on-accent);
   background: var(--interactive-accent);
   border: none;
   border-radius: 999px;
-  opacity: 0;
+  opacity: 0.9;
   cursor: pointer;
   transition: opacity 120ms ease-out;
-}
-
-.simple-gallery-item:hover .simple-gallery-section-insert,
-.simple-gallery-item-active .simple-gallery-section-insert {
-  opacity: 0.85;
-}
-
-.simple-gallery-section-insert:hover {
-  opacity: 1;
 }
 
 .simple-gallery-section-insert-above {
@@ -263,19 +354,18 @@ body {
   bottom: 0.4em;
 }
 
+.simple-gallery-section-insert:hover {
+  opacity: 1;
+}
+
 /*
- * Feature-toggle ("★", top-right of each photo) and the small "..." menu
- * icon (bottom-right) that reveals a photo's controls without needing
- * hover -- the mobile-friendly path, since touch devices have no hover
- * state. The menu icon stays faintly visible always, for discoverability;
- * everything else it reveals follows the same hover/active rule as the
- * section-insert buttons above.
+ * Feature-toggle ("★") and per-photo caption settings live inside the panel.
+ * Desktop reveals them on hover. Mobile uses the separate "..." menu below.
  */
 .simple-gallery-feature-toggle {
   position: absolute;
-  top: 0.4em;
-  right: 0.4em;
-  z-index: 2;
+  bottom: 0.4em;
+  left: 0.4em;
   width: 1.7em;
   height: 1.7em;
   display: flex;
@@ -285,17 +375,12 @@ body {
   font-size: 0.75em;
   line-height: 1;
   color: #fff;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 999px;
-  opacity: 0;
+  opacity: 0.9;
   cursor: pointer;
   transition: opacity 120ms ease-out, background 120ms ease-out;
-}
-
-.simple-gallery-item:hover .simple-gallery-feature-toggle,
-.simple-gallery-item-active .simple-gallery-feature-toggle {
-  opacity: 0.85;
 }
 
 .simple-gallery-feature-toggle:hover {
@@ -313,14 +398,37 @@ body {
   opacity: 1;
 }
 
-.simple-gallery-item-menu {
+.simple-gallery-photo-settings {
   position: absolute;
-  bottom: 0.4em;
   right: 0.4em;
-  z-index: 2;
-  width: 1.7em;
+  bottom: 0.4em;
+  min-width: 1.7em;
   height: 1.7em;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  font-size: 0.75em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.simple-gallery-control-label {
+  display: none;
+}
+
+.simple-gallery-item-menu {
+  position: absolute;
+  top: 0.4em;
+  right: 0.4em;
+  z-index: 4;
+  width: 1.7em;
+  height: 1.7em;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -335,6 +443,11 @@ body {
   transition: opacity 120ms ease-out;
 }
 
+.simple-gallery-item-menu[aria-expanded="true"] {
+  opacity: 1;
+  background: var(--interactive-accent);
+}
+
 .simple-gallery-item:hover .simple-gallery-item-menu,
 .simple-gallery-item-active .simple-gallery-item-menu {
   opacity: 0.9;
@@ -342,6 +455,63 @@ body {
 
 .simple-gallery-item-menu:hover {
   opacity: 1;
+}
+
+/*
+ * The persistent menu is intentionally mobile-only. Once opened, the four
+ * photo actions become a compact, labeled 2x2 panel instead of relying on
+ * desktop-style hover positions whose meaning is hard to discover by touch.
+ */
+body.is-mobile .simple-gallery-item-menu {
+  display: flex;
+}
+
+body.is-mobile .simple-gallery-item-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-content: center;
+  gap: 0.45em;
+  padding: 2.5em 0.55em 0.55em;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-open) {
+  opacity: 0;
+}
+
+body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-open) > button {
+  pointer-events: none;
+}
+
+body.is-mobile .simple-gallery-item-controls > button {
+  position: static;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 2.4em;
+  transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  padding: 0.4em 0.5em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 0.55em;
+  font-size: 0.72em;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+body.is-mobile .simple-gallery-item-controls > button:hover,
+body.is-mobile .simple-gallery-item-controls > button:active {
+  background: var(--interactive-accent);
+}
+
+body.is-mobile .simple-gallery-control-label {
+  display: inline;
 }
 
 .simple-gallery-hide-captions .simple-gallery-caption {
@@ -362,8 +532,11 @@ body.simple-gallery-layout-grid .simple-gallery-item-featured {
   grid-row: span 2;
 }
 
-body.simple-gallery-layout-grid .simple-gallery-img {
+body.simple-gallery-layout-grid .simple-gallery-photo {
   aspect-ratio: var(--simple-gallery-aspect-ratio, 1);
+}
+
+body.simple-gallery-layout-grid .simple-gallery-img {
   height: 100%;
   object-fit: cover;
   border-radius: var(--simple-gallery-radius);
@@ -404,8 +577,11 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   grid-row: span 2;
 }
 
-.simple-gallery-root.simple-gallery-force-grid .simple-gallery-img {
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-photo {
   aspect-ratio: var(--simple-gallery-aspect-ratio, 1);
+}
+
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-img {
   height: 100%;
   object-fit: cover;
   border-radius: var(--simple-gallery-radius);
@@ -453,13 +629,36 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   text-overflow: clip;
 }
 
+/* --- Per-photo caption overrides (win over global and per-gallery rules) --- */
+
+.simple-gallery-item.simple-gallery-item-caption-font-mono .simple-gallery-caption {
+  font-family: var(--font-monospace, monospace);
+}
+
+.simple-gallery-item.simple-gallery-item-caption-font-default .simple-gallery-caption {
+  font-family: inherit;
+}
+
+.simple-gallery-item.simple-gallery-item-caption-lines-single .simple-gallery-caption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.simple-gallery-item.simple-gallery-item-caption-lines-full .simple-gallery-caption {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 /* --- Broken/unresolved image placeholder --- */
 
-.simple-gallery-broken {
+.simple-gallery-broken-photo {
   display: flex;
   align-items: center;
   gap: 0.4em;
   padding: 0.6em 0.7em;
+  box-sizing: border-box;
   aspect-ratio: 1;
   border: 1px dashed var(--simple-gallery-border);
   border-radius: var(--simple-gallery-radius);
@@ -470,6 +669,38 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 
 .simple-gallery-broken-text {
   overflow-wrap: anywhere;
+}
+
+/*
+ * Presentation-mode safety net. Reading Mode normally has these nodes
+ * removed by GalleryRenderChild, but Obsidian keeps a hidden Live Preview
+ * tree beside the visible reading tree and PDF export may render through a
+ * separate preview container. These selectors make the presentation rule
+ * unconditional even when that lifecycle/mode detection is bypassed.
+ */
+.markdown-reading-view .simple-gallery-toolbar,
+.markdown-reading-view .simple-gallery-item-controls,
+.markdown-reading-view .simple-gallery-item-menu,
+.markdown-reading-view .simple-gallery-section-remove,
+.markdown-reading-view .simple-gallery-caption-empty,
+.markdown-reading-view .simple-gallery-edit-input {
+  display: none !important;
+}
+
+@media print {
+  .simple-gallery-toolbar,
+  .simple-gallery-item-controls,
+  .simple-gallery-item-menu,
+  .simple-gallery-section-remove,
+  .simple-gallery-caption-empty,
+  .simple-gallery-edit-input {
+    display: none !important;
+  }
+
+  .simple-gallery-item {
+    transform: none !important;
+    box-shadow: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
