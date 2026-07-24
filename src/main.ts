@@ -16,19 +16,25 @@ import {
 // ---------------------------------------------------------------------------
 
 type GalleryLayout = 'masonry' | 'grid';
+type CaptionFont = 'default' | 'monospace';
+type CaptionLines = 'full' | 'single';
 
 interface SimpleGallerySettings {
   minThumbnailSize: number;
   gapSize: number;
   showCaptions: boolean;
   layout: GalleryLayout;
+  captionFont: CaptionFont;
+  captionLines: CaptionLines;
 }
 
 const DEFAULT_SETTINGS: SimpleGallerySettings = {
   minThumbnailSize: 160,
   gapSize: 8,
   showCaptions: true,
-  layout: 'masonry'
+  layout: 'masonry',
+  captionFont: 'default',
+  captionLines: 'full'
 };
 
 // ---------------------------------------------------------------------------
@@ -62,6 +68,8 @@ export interface GalleryBlock {
   minThumbnailSize?: number;
   gapSize?: number;
   showCaptions?: boolean;
+  captionFont?: CaptionFont;
+  captionLines?: CaptionLines;
   sections: GallerySection[];
 }
 
@@ -72,6 +80,8 @@ const NOTE_LINE = /^note:\s*(.*)$/i;
 const LAYOUT_LINE = /^layout:\s*(masonry|grid)\s*$/i;
 const MIN_SIZE_LINE = /^min-size:\s*(\d+)\s*$/i;
 const GAP_LINE = /^gap:\s*(\d+)\s*$/i;
+const CAPTION_FONT_LINE = /^caption-font:\s*(default|monospace)\s*$/i;
+const CAPTION_LINES_LINE = /^caption-lines:\s*(full|single)\s*$/i;
 const CAPTIONS_LINE = /^captions:\s*(true|false)\s*$/i;
 const EMBED_LINK = /^!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
 
@@ -146,6 +156,18 @@ export function parseGalleryBlock(source: string): GalleryBlock {
           continue;
         }
 
+        const captionFontMatch = CAPTION_FONT_LINE.exec(trimmed);
+        if (captionFontMatch && block.captionFont === undefined) {
+          block.captionFont = captionFontMatch[1].toLowerCase() as CaptionFont;
+          continue;
+        }
+
+        const captionLinesMatch = CAPTION_LINES_LINE.exec(trimmed);
+        if (captionLinesMatch && block.captionLines === undefined) {
+          block.captionLines = captionLinesMatch[1].toLowerCase() as CaptionLines;
+          continue;
+        }
+
         const introMatch = NOTE_LINE.exec(trimmed);
         if (introMatch && block.intro === undefined) {
           block.intro = introMatch[1].trim();
@@ -204,6 +226,8 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
   if (block.minThumbnailSize !== undefined) preamble.push(`min-size: ${block.minThumbnailSize}`);
   if (block.gapSize !== undefined) preamble.push(`gap: ${block.gapSize}`);
   if (block.showCaptions !== undefined) preamble.push(`captions: ${block.showCaptions}`);
+  if (block.captionFont !== undefined) preamble.push(`caption-font: ${block.captionFont}`);
+  if (block.captionLines !== undefined) preamble.push(`caption-lines: ${block.captionLines}`);
 
   const body: string[] = [];
   for (const section of block.sections) {
@@ -256,6 +280,12 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
   if (block.showCaptions === false) el.addClass('simple-gallery-force-hide-captions');
   else if (block.showCaptions === true) el.addClass('simple-gallery-force-show-captions');
 
+  if (block.captionFont === 'monospace') el.addClass('simple-gallery-force-caption-font-mono');
+  else if (block.captionFont === 'default') el.addClass('simple-gallery-force-caption-font-default');
+
+  if (block.captionLines === 'single') el.addClass('simple-gallery-force-caption-lines-single');
+  else if (block.captionLines === 'full') el.addClass('simple-gallery-force-caption-lines-full');
+
   if (block.minThumbnailSize !== undefined) {
     el.style.setProperty('--simple-gallery-min-size', `${block.minThumbnailSize}px`);
   }
@@ -264,8 +294,23 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
   }
 }
 
-function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
+/**
+ * isLivePreview gates every editing affordance: the empty-caption
+ * placeholder, the section-insert buttons, and (in GalleryRenderChild)
+ * drag-and-drop plus click-to-edit. Reading Mode -- and any other context
+ * this renders in that isn't confirmed to be Live Preview, such as a hover
+ * preview popover -- gets pure presentation with none of it, per design:
+ * no caption unless one exists, no buttons, nothing but the photos.
+ */
+function renderGalleryBlock(
+  app: App,
+  block: GalleryBlock,
+  el: HTMLElement,
+  sourcePath: string,
+  isLivePreview: boolean
+): void {
   el.addClass('simple-gallery-root');
+  if (isLivePreview) el.addClass('simple-gallery-editable');
   applyBlockOverrides(el, block);
 
   if (block.intro) {
@@ -291,15 +336,21 @@ function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sour
     const grid = parent.createDiv({ cls: 'simple-gallery-grid' });
     grid.dataset.sectionIndex = String(sectionIndex);
     for (const item of section.items) {
-      renderGalleryItem(app, grid, item, sourcePath);
+      renderGalleryItem(app, grid, item, sourcePath, isLivePreview);
     }
   });
 }
 
-function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
+function renderGalleryItem(
+  app: App,
+  grid: HTMLElement,
+  item: GalleryItem,
+  sourcePath: string,
+  isLivePreview: boolean
+): void {
   const src = resolveGalleryImageSrc(app, item.linkpath, sourcePath);
   if (!src) {
-    renderBrokenItem(grid, item);
+    renderBrokenItem(grid, item, isLivePreview);
     return;
   }
 
@@ -309,19 +360,42 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
   img.loading = 'lazy';
   img.alt = item.caption?.trim() || basename(item.linkpath);
 
-  const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption' });
   if (item.caption) {
-    caption.setText(item.caption);
-  } else {
-    caption.addClass('simple-gallery-caption-empty');
+    figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
+  } else if (isLivePreview) {
+    const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption simple-gallery-caption-empty' });
     caption.setText('+ add caption');
   }
+
+  if (isLivePreview) renderSectionInsertButtons(figure);
 }
 
-function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
+/**
+ * Small "add a section boundary here" buttons, revealed on hover over an
+ * item -- the visual counterpart to hand-typing a "section:" line. Only
+ * ever rendered in Live Preview.
+ */
+function renderSectionInsertButtons(item: HTMLElement): void {
+  const above = item.createEl('button', {
+    cls: 'simple-gallery-section-insert simple-gallery-section-insert-above',
+    text: '+ section above'
+  });
+  above.type = 'button';
+  above.draggable = false;
+
+  const below = item.createEl('button', {
+    cls: 'simple-gallery-section-insert simple-gallery-section-insert-below',
+    text: '+ section below'
+  });
+  below.type = 'button';
+  below.draggable = false;
+}
+
+function renderBrokenItem(grid: HTMLElement, item: GalleryItem, isLivePreview: boolean): void {
   const broken = grid.createDiv({ cls: 'simple-gallery-item simple-gallery-broken' });
   broken.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
   broken.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
+  if (isLivePreview) renderSectionInsertButtons(broken);
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +498,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
     containerEl: HTMLElement,
     private readonly app: App,
     private readonly ctx: MarkdownPostProcessorContext,
-    private readonly block: GalleryBlock
+    private readonly block: GalleryBlock,
+    private readonly isLivePreview: boolean
   ) {
     super(containerEl);
   }
@@ -442,15 +517,20 @@ class GalleryRenderChild extends MarkdownRenderChild {
           this.registerDomEvent(img, 'load', () => this.scheduleRecompute(grids));
         }
       });
-      this.wireDragAndDrop(grid, sectionIndex);
-      this.wireCaptionEditing(grid, sectionIndex);
+      if (this.isLivePreview) {
+        this.wireDragAndDrop(grid, sectionIndex);
+        this.wireCaptionEditing(grid, sectionIndex);
+        this.wireSectionInsertButtons(grid, sectionIndex);
+      }
     });
     this.scheduleRecompute(grids);
 
-    this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-section-title').forEach((titleEl) => {
-      const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
-      this.wireSectionTitleEditing(titleEl, sectionIndex);
-    });
+    if (this.isLivePreview) {
+      this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-section-title').forEach((titleEl) => {
+        const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
+        this.wireSectionTitleEditing(titleEl, sectionIndex);
+      });
+    }
   }
 
   onunload(): void {
@@ -537,6 +617,29 @@ class GalleryRenderChild extends MarkdownRenderChild {
   }
 
   /**
+   * Splits a section into two at the given item: everything from that item
+   * onward ("above") or after it ("below") moves into a brand-new labeled
+   * section inserted right after the current one. Splitting at the very
+   * first or last item of a section produces an empty section on one side --
+   * accepted as a rare, harmless edge case rather than disabling the button.
+   */
+  private async commitInsertSectionBoundary(
+    sectionIndex: number,
+    itemIndex: number,
+    position: 'above' | 'below'
+  ): Promise<void> {
+    const section = this.block.sections[sectionIndex];
+    if (!section) return;
+
+    const splitAt = position === 'above' ? itemIndex : itemIndex + 1;
+    const movedItems = section.items.splice(splitAt);
+    const newSection: GallerySection = { label: 'New section', items: movedItems };
+    this.block.sections.splice(sectionIndex + 1, 0, newSection);
+
+    await this.writeBlockToFile();
+  }
+
+  /**
    * Re-serializes the whole in-memory block and splices it back over its own
    * lines in the file. Obsidian re-renders the block from the new source
    * afterward, which settles on the same state -- so a stale line-range
@@ -571,6 +674,28 @@ class GalleryRenderChild extends MarkdownRenderChild {
           });
         });
       });
+  }
+
+  /** Wires the per-item "+ section above"/"+ section below" buttons rendered in Live Preview. */
+  private wireSectionInsertButtons(grid: HTMLElement, sectionIndex: number): void {
+    const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
+    items.forEach((itemEl, itemIndex) => {
+      const above = itemEl.querySelector<HTMLElement>('.simple-gallery-section-insert-above');
+      const below = itemEl.querySelector<HTMLElement>('.simple-gallery-section-insert-below');
+
+      if (above) {
+        this.registerDomEvent(above, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
+          void this.commitInsertSectionBoundary(sectionIndex, itemIndex, 'above');
+        });
+      }
+      if (below) {
+        this.registerDomEvent(below, 'click', (evt: MouseEvent) => {
+          evt.stopPropagation();
+          void this.commitInsertSectionBoundary(sectionIndex, itemIndex, 'below');
+        });
+      }
+    });
   }
 
   private wireSectionTitleEditing(titleEl: HTMLElement, sectionIndex: number): void {
@@ -678,8 +803,12 @@ export default class SimpleGalleryPlugin extends Plugin {
       'simple-gallery',
       (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
         const block = parseGalleryBlock(source);
-        renderGalleryBlock(this.app, block, el, ctx.sourcePath);
-        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block));
+        // Live Preview renders inside .markdown-source-view; Reading Mode (and
+        // any other context, e.g. a hover preview) doesn't -- and gets pure
+        // presentation with no editing affordances rather than a guess.
+        const isLivePreview = el.closest('.markdown-source-view') !== null;
+        renderGalleryBlock(this.app, block, el, ctx.sourcePath, isLivePreview);
+        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, isLivePreview));
       }
     );
 
@@ -715,7 +844,12 @@ export default class SimpleGalleryPlugin extends Plugin {
   }
 
   onunload(): void {
-    document.body.classList.remove('simple-gallery-hide-captions', 'simple-gallery-layout-grid');
+    document.body.classList.remove(
+      'simple-gallery-hide-captions',
+      'simple-gallery-layout-grid',
+      'simple-gallery-caption-font-mono',
+      'simple-gallery-caption-lines-single'
+    );
     document.body.style.removeProperty('--simple-gallery-min-size');
     document.body.style.removeProperty('--simple-gallery-gap');
   }
@@ -735,6 +869,8 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.style.setProperty('--simple-gallery-gap', `${this.settings.gapSize}px`);
     document.body.classList.toggle('simple-gallery-hide-captions', !this.settings.showCaptions);
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
+    document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
+    document.body.classList.toggle('simple-gallery-caption-lines-single', this.settings.captionLines === 'single');
   }
 }
 
@@ -798,6 +934,32 @@ class SimpleGallerySettingTab extends PluginSettingTab {
           key: 'showCaptions',
           defaultValue: DEFAULT_SETTINGS.showCaptions
         }
+      },
+      {
+        name: 'Caption font',
+        desc: 'Typewriter uses your configured monospace font for captions instead of the normal text font.',
+        control: {
+          type: 'dropdown',
+          key: 'captionFont',
+          defaultValue: DEFAULT_SETTINGS.captionFont,
+          options: {
+            default: 'Default',
+            monospace: 'Typewriter (monospace)'
+          }
+        }
+      },
+      {
+        name: 'Caption length',
+        desc: 'Full shows the whole caption, wrapping as needed. Single line truncates a long caption with an ellipsis.',
+        control: {
+          type: 'dropdown',
+          key: 'captionLines',
+          defaultValue: DEFAULT_SETTINGS.captionLines,
+          options: {
+            full: 'Full',
+            single: 'Single line'
+          }
+        }
       }
     ];
   }
@@ -808,6 +970,8 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       case 'minThumbnailSize': return this.plugin.settings.minThumbnailSize;
       case 'gapSize': return this.plugin.settings.gapSize;
       case 'showCaptions': return this.plugin.settings.showCaptions;
+      case 'captionFont': return this.plugin.settings.captionFont;
+      case 'captionLines': return this.plugin.settings.captionLines;
       default: return undefined;
     }
   }
@@ -825,6 +989,12 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         break;
       case 'showCaptions':
         if (typeof value === 'boolean') this.plugin.settings.showCaptions = value;
+        break;
+      case 'captionFont':
+        if (value === 'default' || value === 'monospace') this.plugin.settings.captionFont = value;
+        break;
+      case 'captionLines':
+        if (value === 'full' || value === 'single') this.plugin.settings.captionLines = value;
         break;
       default:
         return;
@@ -882,6 +1052,30 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.showCaptions)
         .onChange(async (value) => {
           this.plugin.settings.showCaptions = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Caption font')
+      .setDesc('Typewriter uses your configured monospace font for captions instead of the normal text font.')
+      .addDropdown((dropdown) => dropdown
+        .addOption('default', 'Default')
+        .addOption('monospace', 'Typewriter (monospace)')
+        .setValue(this.plugin.settings.captionFont)
+        .onChange(async (value) => {
+          this.plugin.settings.captionFont = value === 'monospace' ? 'monospace' : 'default';
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Caption length')
+      .setDesc('Full shows the whole caption, wrapping as needed. Single line truncates a long caption with an ellipsis.')
+      .addDropdown((dropdown) => dropdown
+        .addOption('full', 'Full')
+        .addOption('single', 'Single line')
+        .setValue(this.plugin.settings.captionLines)
+        .onChange(async (value) => {
+          this.plugin.settings.captionLines = value === 'single' ? 'single' : 'full';
           await this.plugin.saveSettings();
         }));
   }

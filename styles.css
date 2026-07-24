@@ -18,6 +18,7 @@ body {
   --simple-gallery-hover-scale: 1.03;
   --simple-gallery-background: var(--background-secondary);
   --simple-gallery-caption-color: var(--text-muted);
+  --simple-gallery-caption-font: inherit;
   --simple-gallery-border: var(--background-modifier-border);
   --simple-gallery-broken-color: var(--text-error);
 }
@@ -47,7 +48,6 @@ body {
   font-size: 0.95em;
   font-weight: 600;
   color: var(--text-normal);
-  cursor: text;
 }
 
 /* --- Grid: Masonry (default) --- */
@@ -61,6 +61,7 @@ body {
 }
 
 .simple-gallery-item {
+  position: relative;
   grid-row-end: span var(--simple-gallery-row-span, 20);
   margin: 0;
   display: block;
@@ -88,17 +89,29 @@ body {
   font-size: 0.82em;
   line-height: 1.3;
   color: var(--simple-gallery-caption-color);
+  font-family: var(--simple-gallery-caption-font, inherit);
   text-align: center;
-  cursor: text;
 }
 
+/*
+ * The "+ add caption" placeholder only ever exists in Live Preview (Reading
+ * Mode never renders it at all). It stays fully collapsed -- zero height,
+ * not just invisible -- until the item is hovered, then accordions open.
+ */
 .simple-gallery-caption-empty {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
   font-style: italic;
-  opacity: 0.45;
-  transition: opacity 120ms ease-out;
+  transition: max-height 160ms ease-out, opacity 120ms ease-out, padding 160ms ease-out;
 }
 
 .simple-gallery-item:hover .simple-gallery-caption-empty {
+  max-height: 2.5em;
+  padding-top: 0.35em;
+  padding-bottom: 0.35em;
   opacity: 0.9;
 }
 
@@ -140,6 +153,51 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Editing hints (cursor changes suggesting something is clickable) only
+ * apply in Live Preview -- Reading Mode never gets the .simple-gallery-editable
+ * class, so these never show there even by coincidence.
+ */
+.simple-gallery-editable .simple-gallery-caption,
+.simple-gallery-editable .simple-gallery-section-title {
+  cursor: text;
+}
+
+/* --- Section-insert buttons (Live Preview only; hover-revealed) --- */
+
+.simple-gallery-section-insert {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 0.15em 0.6em;
+  font-size: 0.68em;
+  line-height: 1.4;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  border: none;
+  border-radius: 999px;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease-out;
+}
+
+.simple-gallery-item:hover .simple-gallery-section-insert {
+  opacity: 0.85;
+}
+
+.simple-gallery-section-insert:hover {
+  opacity: 1;
+}
+
+.simple-gallery-section-insert-above {
+  top: 0.4em;
+}
+
+.simple-gallery-section-insert-below {
+  bottom: 0.4em;
+}
+
 .simple-gallery-hide-captions .simple-gallery-caption {
   display: none;
 }
@@ -159,6 +217,18 @@ body.simple-gallery-layout-grid .simple-gallery-img {
   height: 100%;
   object-fit: cover;
   border-radius: var(--simple-gallery-radius);
+}
+
+/* --- Caption font/length (opt-in via settings) --- */
+
+body.simple-gallery-caption-font-mono .simple-gallery-caption {
+  font-family: var(--font-monospace, monospace);
+}
+
+body.simple-gallery-caption-lines-single .simple-gallery-caption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /*
@@ -207,6 +277,26 @@ body.simple-gallery-layout-grid .simple-gallery-img {
 
 .simple-gallery-root.simple-gallery-force-show-captions .simple-gallery-caption {
   display: block;
+}
+
+.simple-gallery-root.simple-gallery-force-caption-font-mono .simple-gallery-caption {
+  font-family: var(--font-monospace, monospace);
+}
+
+.simple-gallery-root.simple-gallery-force-caption-font-default .simple-gallery-caption {
+  font-family: inherit;
+}
+
+.simple-gallery-root.simple-gallery-force-caption-lines-single .simple-gallery-caption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.simple-gallery-root.simple-gallery-force-caption-lines-full .simple-gallery-caption {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* --- Broken/unresolved image placeholder --- */

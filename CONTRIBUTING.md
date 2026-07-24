@@ -28,6 +28,15 @@ Before submitting a change:
     placeholder), clearing a caption to remove it, clicking to rename a section, and
     confirm an empty section name is rejected rather than saved. Confirm Escape cancels
     without writing anything, and an unchanged value on blur doesn't trigger a write.
+11. Confirm Reading Mode never shows the "+ add caption" placeholder, the section-insert
+    buttons, or a draggable cursor on hover — it should be indistinguishable from a static
+    image grid. Confirm all of that DOES appear in Live Preview.
+12. Test hovering a photo to reveal "+ section above"/"+ section below", including at the
+    very first and last photo of a section (should still work, producing an empty section
+    on the boundary side rather than being disabled).
+13. Test the Caption font and Caption length settings (and their `caption-font:`/
+    `caption-lines:` per-gallery overrides), including with a caption long enough to wrap
+    or truncate.
 
 Keep the plugin simple and local-first. New functionality must not transmit vault content
 without explicit user action and clear documentation. Do not include vault content or

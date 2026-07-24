@@ -108,16 +108,22 @@ Add an optional caption on the line directly below an item, indented and prefixe
 
 ### Editing directly in the gallery
 
-You don't have to hand-edit the code block for any of this:
+All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
+caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
 - **Reorder** — Click and drag any thumbnail to a new position. Dragging is scoped to one
   section (or the whole gallery, if it has no sections) at a time; dragging an item into a
   different section isn't supported.
-- **Edit a caption** — Click a caption, or the "+ add caption" placeholder under a photo
-  that doesn't have one, to edit it in place. Press Enter or click elsewhere to save,
-  Escape to cancel. Clearing the text removes the caption.
+- **Edit a caption** — Hover a photo and its caption area reveals a "+ add caption"
+  placeholder (or the existing caption, always visible if it has one); click either to edit
+  in place. Press Enter or click elsewhere to save, Escape to cancel. Clearing the text
+  removes the caption.
 - **Rename a section** — Click a section's name to edit it the same way. An empty name is
   ignored rather than saved, so you can't accidentally blank one out.
+- **Add a section** — Hover a photo to reveal small "+ section above" / "+ section below"
+  buttons; click one to split its section into two right there, with a "New section" label
+  ready to rename. Splitting at the very first or last photo of a section creates an empty
+  section on that side rather than being disabled — a rare, harmless edge case.
 
 Every one of these rewrites just the affected part of the gallery's code block and leaves
 everything else — other galleries, the rest of the note — untouched.
@@ -156,6 +162,8 @@ image — the rest of the settings, and every other gallery in the vault, are un
     min-size: 220
     gap: 4
     captions: false
+    caption-font: monospace
+    caption-lines: single
     - ![[brussels-1.jpg]]
     - ![[brussels-2.jpg]]
     ```
@@ -164,8 +172,12 @@ image — the rest of the settings, and every other gallery in the vault, are un
 - **`min-size: <pixels>`** — Overrides Minimum thumbnail size for this gallery only.
 - **`gap: <pixels>`** — Overrides Gap between images for this gallery only.
 - **`captions: true` / `captions: false`** — Overrides Show captions for this gallery only.
+- **`caption-font: default` / `caption-font: monospace`** — Overrides Caption font for this
+  gallery only.
+- **`caption-lines: full` / `caption-lines: single`** — Overrides Caption length for this
+  gallery only.
 
-All four are optional and independent — use just the ones you need. They only take effect
+All six are optional and independent — use just the ones you need. They only take effect
 before the first `section:` or image line; anywhere after that, they're ignored like any
 other stray text.
 
@@ -204,6 +216,10 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 - **Show captions** — Display captions under images that have one. Turn this off for a
   clean, caption-free grid — useful for print or export — without removing captions from
   the source.
+- **Caption font** — Default uses the normal text font. Typewriter uses your configured
+  monospace font instead.
+- **Caption length** — Full (default) shows the whole caption, wrapping onto multiple
+  lines if needed. Single line truncates a long caption with an ellipsis instead.
 
 Finer visual control (corner radius, hover effect, colors) is available through CSS
 custom properties rather than additional settings. See
@@ -278,6 +294,16 @@ anywhere.
 
 If **Simple Gallery** improves your workflow, you can support its continued development on
 [Buy Me a Coffee](https://www.buymeacoffee.com/robertfleming).
+
+## Acknowledgements
+
+Simple Gallery was directed by Robert Fleming, who set the vision, made every product
+call — the gallery syntax, the masonry-by-default look, per-gallery overrides, drag-to-
+reorder, click-to-edit, what belongs in Reading Mode versus Live Preview — and tested it
+against a real recipe note along the way. The implementation, architecture, and
+documentation were written by Claude (Sonnet 5, Anthropic) in close collaboration with
+him. Robert wanted this credited plainly, and gladly: this plugin exists because of that
+collaboration, and he's grateful for it.
 
 ## License
 
