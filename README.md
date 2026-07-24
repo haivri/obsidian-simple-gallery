@@ -29,6 +29,16 @@ Click and drag a thumbnail to a new spot in the same gallery. The code block's s
 updates immediately to match — no manual list-editing needed.
 
 <p align="center">
+  <img src="assets/simple-gallery-inline-edit.png" alt="Clicking a caption or section title directly in the rendered gallery to edit it in place" width="900">
+</p>
+
+### Click to edit captions and section names
+
+No need to open the code block at all: click any caption (or the "+ add caption"
+placeholder on a photo that doesn't have one yet) or a section's name to edit it right
+there. Press Enter or click away to save, Escape to cancel.
+
+<p align="center">
   <img src="assets/simple-gallery-masonry.png" alt="Simple Gallery rendering a Brussels sprouts recipe with the default Masonry layout" width="900">
 </p>
 
@@ -55,7 +65,8 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
 - A **Convert selection to gallery** command turns existing images already in a note —
   bulleted or not, selected or not — straight into a gallery block. An **Insert empty
   gallery block** command starts one from scratch.
-- Reorder photos by clicking and dragging a thumbnail — the note's underlying code block
+- Reorder photos by clicking and dragging a thumbnail, and edit captions or section names
+  by clicking them directly in the rendered gallery — the note's underlying code block
   updates to match, no manual editing required.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
@@ -95,11 +106,21 @@ block. Or skip typing it out entirely — see **Commands** below.
 Add an optional caption on the line directly below an item, indented and prefixed with
 `caption:`. Captions are entirely optional — leave them off any item you don't want one for.
 
-### Reordering
+### Editing directly in the gallery
 
-Click and drag any thumbnail to a new position to reorder it — the gallery's code block is
-rewritten to match right away. Dragging is scoped to one section (or the whole gallery, if
-it has no sections) at a time; dragging an item into a different section isn't supported.
+You don't have to hand-edit the code block for any of this:
+
+- **Reorder** — Click and drag any thumbnail to a new position. Dragging is scoped to one
+  section (or the whole gallery, if it has no sections) at a time; dragging an item into a
+  different section isn't supported.
+- **Edit a caption** — Click a caption, or the "+ add caption" placeholder under a photo
+  that doesn't have one, to edit it in place. Press Enter or click elsewhere to save,
+  Escape to cancel. Clearing the text removes the caption.
+- **Rename a section** — Click a section's name to edit it the same way. An empty name is
+  ignored rather than saved, so you can't accidentally blank one out.
+
+Every one of these rewrites just the affected part of the gallery's code block and leaves
+everything else — other galleries, the rest of the note — untouched.
 
 ### Sections and notes
 

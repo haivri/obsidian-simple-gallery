@@ -274,12 +274,14 @@ function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sour
 
   const isFlat = block.sections.length === 1 && !block.sections[0].label && !block.sections[0].note;
 
-  for (const section of block.sections) {
+  block.sections.forEach((section, sectionIndex) => {
     const parent = isFlat ? el : el.createDiv({ cls: 'simple-gallery-section' });
 
     if (!isFlat) {
+      parent.dataset.sectionIndex = String(sectionIndex);
       if (section.label) {
-        parent.createEl('h4', { cls: 'simple-gallery-section-title', text: section.label });
+        const title = parent.createEl('h4', { cls: 'simple-gallery-section-title', text: section.label });
+        title.dataset.sectionIndex = String(sectionIndex);
       }
       if (section.note) {
         parent.createEl('p', { cls: 'simple-gallery-note', text: section.note });
@@ -287,10 +289,11 @@ function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sour
     }
 
     const grid = parent.createDiv({ cls: 'simple-gallery-grid' });
+    grid.dataset.sectionIndex = String(sectionIndex);
     for (const item of section.items) {
       renderGalleryItem(app, grid, item, sourcePath);
     }
-  }
+  });
 }
 
 function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
@@ -306,8 +309,12 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
   img.loading = 'lazy';
   img.alt = item.caption?.trim() || basename(item.linkpath);
 
+  const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption' });
   if (item.caption) {
-    figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
+    caption.setText(item.caption);
+  } else {
+    caption.addClass('simple-gallery-caption-empty');
+    caption.setText('+ add caption');
   }
 }
 
@@ -427,7 +434,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
     if (grids.length === 0) return;
 
     this.observer = new ResizeObserver(() => this.scheduleRecompute(grids));
-    grids.forEach((grid, sectionIndex) => {
+    grids.forEach((grid) => {
+      const sectionIndex = Number(grid.dataset.sectionIndex ?? '0');
       this.observer?.observe(grid);
       grid.querySelectorAll<HTMLImageElement>('img.simple-gallery-img').forEach((img) => {
         if (!img.complete) {
@@ -435,8 +443,14 @@ class GalleryRenderChild extends MarkdownRenderChild {
         }
       });
       this.wireDragAndDrop(grid, sectionIndex);
+      this.wireCaptionEditing(grid, sectionIndex);
     });
     this.scheduleRecompute(grids);
+
+    this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-section-title').forEach((titleEl) => {
+      const sectionIndex = Number(titleEl.dataset.sectionIndex ?? '-1');
+      this.wireSectionTitleEditing(titleEl, sectionIndex);
+    });
   }
 
   onunload(): void {
@@ -498,17 +512,38 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
   /**
    * Reorders the in-memory model to match the DOM move already made (for
-   * instant visual feedback) and writes the whole gallery block back to the
-   * file. Obsidian re-renders the block from the new source afterward,
-   * which settles on the same order -- so a stale line-range lookup here
-   * just means the edit is silently dropped rather than corrupting the file.
+   * instant visual feedback), then writes the block back to the file.
    */
   private async commitReorder(sectionIndex: number, fromIndex: number, toIndex: number): Promise<void> {
     const section = this.block.sections[sectionIndex];
     if (!section) return;
     const [moved] = section.items.splice(fromIndex, 1);
     section.items.splice(toIndex, 0, moved);
+    await this.writeBlockToFile();
+  }
 
+  private async commitCaptionChange(sectionIndex: number, itemIndex: number, caption: string): Promise<void> {
+    const item = this.block.sections[sectionIndex]?.items[itemIndex];
+    if (!item) return;
+    item.caption = caption || undefined;
+    await this.writeBlockToFile();
+  }
+
+  private async commitSectionLabelChange(sectionIndex: number, label: string): Promise<void> {
+    const section = this.block.sections[sectionIndex];
+    if (!section || !label) return;
+    section.label = label;
+    await this.writeBlockToFile();
+  }
+
+  /**
+   * Re-serializes the whole in-memory block and splices it back over its own
+   * lines in the file. Obsidian re-renders the block from the new source
+   * afterward, which settles on the same state -- so a stale line-range
+   * lookup here just means the edit is silently dropped rather than
+   * corrupting the file.
+   */
+  private async writeBlockToFile(): Promise<void> {
     const info = this.ctx.getSectionInfo(this.containerEl);
     const file = this.app.vault.getAbstractFileByPath(this.ctx.sourcePath);
     if (!info || !(file instanceof TFile)) return;
@@ -519,6 +554,81 @@ class GalleryRenderChild extends MarkdownRenderChild {
       lines.splice(info.lineStart, info.lineEnd - info.lineStart + 1, ...replacement.split('\n'));
       return lines.join('\n');
     });
+  }
+
+  /**
+   * Click-to-edit for a caption: clicking the caption (or its "+ Add
+   * caption" placeholder) swaps it for a text input pre-filled with the
+   * current value. Commits on blur or Enter; Escape cancels.
+   */
+  private wireCaptionEditing(grid: HTMLElement, sectionIndex: number): void {
+    grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item > .simple-gallery-caption')
+      .forEach((captionEl, itemIndex) => {
+        this.registerDomEvent(captionEl, 'click', () => {
+          const isPlaceholder = captionEl.hasClass('simple-gallery-caption-empty');
+          this.makeEditable(captionEl, isPlaceholder ? '' : captionEl.getText(), 'Add a caption…', (value) => {
+            void this.commitCaptionChange(sectionIndex, itemIndex, value);
+          });
+        });
+      });
+  }
+
+  private wireSectionTitleEditing(titleEl: HTMLElement, sectionIndex: number): void {
+    if (sectionIndex < 0) return;
+    this.registerDomEvent(titleEl, 'click', () => {
+      this.makeEditable(titleEl, titleEl.getText(), 'Section name…', (value) => {
+        void this.commitSectionLabelChange(sectionIndex, value);
+      }, 'simple-gallery-edit-input-title');
+    });
+  }
+
+  /**
+   * Swaps displayEl for a text <input> pre-filled with currentValue. Commits
+   * the trimmed value via onCommit on blur or Enter (only if it actually
+   * changed); Escape or an unchanged value just restores displayEl as-is.
+   */
+  private makeEditable(
+    displayEl: HTMLElement,
+    currentValue: string,
+    placeholder: string,
+    onCommit: (value: string) => void,
+    extraClass?: string
+  ): void {
+    const parent = displayEl.parentElement;
+    if (!parent) return;
+
+    // Appended to parent for now; replaceWith() below relocates it to
+    // displayEl's exact position (and detaches it from here) in one step.
+    const input = parent.createEl('input', { cls: 'simple-gallery-edit-input' });
+    if (extraClass) input.addClass(extraClass);
+    input.type = 'text';
+    input.value = currentValue;
+    input.placeholder = placeholder;
+
+    let finished = false;
+    const finish = (commit: boolean): void => {
+      if (finished) return;
+      finished = true;
+      input.replaceWith(displayEl);
+      const next = input.value.trim();
+      if (commit && next !== currentValue.trim()) onCommit(next);
+    };
+
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter') {
+        evt.preventDefault();
+        input.blur();
+      } else if (evt.key === 'Escape') {
+        evt.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener('click', (evt: MouseEvent) => evt.stopPropagation());
+
+    displayEl.replaceWith(input);
+    input.focus();
+    input.select();
   }
 
   private scheduleRecompute(grids: HTMLElement[]): void {

@@ -47,6 +47,7 @@ body {
   font-size: 0.95em;
   font-weight: 600;
   color: var(--text-normal);
+  cursor: text;
 }
 
 /* --- Grid: Masonry (default) --- */
@@ -88,6 +89,38 @@ body {
   line-height: 1.3;
   color: var(--simple-gallery-caption-color);
   text-align: center;
+  cursor: text;
+}
+
+.simple-gallery-caption-empty {
+  font-style: italic;
+  opacity: 0.45;
+  transition: opacity 120ms ease-out;
+}
+
+.simple-gallery-item:hover .simple-gallery-caption-empty {
+  opacity: 0.9;
+}
+
+.simple-gallery-edit-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.3em 0.5em;
+  font: inherit;
+  font-size: 0.82em;
+  text-align: center;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: 4px;
+}
+
+.simple-gallery-edit-input-title {
+  font-size: 0.95em;
+  font-weight: 600;
+  text-align: left;
 }
 
 .simple-gallery-draggable {

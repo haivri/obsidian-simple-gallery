@@ -14,5 +14,6 @@ All notable changes to Simple Gallery will be documented here.
 - Broken or unresolved image references render an inline placeholder instead of failing the whole block.
 - Settings for minimum thumbnail size, gap, layout, and whether captions are shown — each overridable per gallery via optional `layout:`/`min-size:`/`gap:`/`captions:` fields.
 - Click and drag a thumbnail to reorder it within its section; the code block is rewritten to match.
+- Click a caption or a section name directly in the rendered gallery to edit it in place, including adding a caption to a photo that doesn't have one yet.
 - Public CSS custom properties for corner radius, hover effect, colors, and more.
 - Local-first operation with no telemetry or network requests.

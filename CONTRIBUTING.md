@@ -24,6 +24,10 @@ Before submitting a change:
    gallery), including a gallery with per-gallery `layout:`/`min-size:`/`gap:`/`captions:`
    overrides — confirm the code block is rewritten correctly and the override lines are
    preserved.
+10. Test clicking to edit a caption (both an existing one and the "+ add caption"
+    placeholder), clearing a caption to remove it, clicking to rename a section, and
+    confirm an empty section name is rejected rather than saved. Confirm Escape cancels
+    without writing anything, and an unchanged value on blur doesn't trigger a write.
 
 Keep the plugin simple and local-first. New functionality must not transmit vault content
 without explicit user action and clear documentation. Do not include vault content or
