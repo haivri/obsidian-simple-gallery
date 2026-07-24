@@ -90,6 +90,23 @@ body {
   text-align: center;
 }
 
+.simple-gallery-draggable {
+  cursor: grab;
+}
+
+.simple-gallery-draggable:active {
+  cursor: grabbing;
+}
+
+.simple-gallery-dragging {
+  opacity: 0.4;
+}
+
+.simple-gallery-drop-target {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
 .simple-gallery-hide-captions .simple-gallery-caption {
   display: none;
 }
@@ -109,6 +126,54 @@ body.simple-gallery-layout-grid .simple-gallery-img {
   height: 100%;
   object-fit: cover;
   border-radius: var(--simple-gallery-radius);
+}
+
+/*
+ * --- Per-gallery overrides ---
+ *
+ * An individual gallery's own "layout:"/"captions:" fields win over the
+ * global setting regardless of which direction they override, since each
+ * selector below has higher specificity than the body-level rules above.
+ * "min-size:"/"gap:" don't need rules here at all -- they're plain CSS
+ * custom properties set directly on the gallery's root element, which
+ * already override the inherited value from <body> on their own.
+ */
+
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-grid {
+  grid-auto-rows: auto;
+}
+
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-item {
+  grid-row-end: auto;
+}
+
+.simple-gallery-root.simple-gallery-force-grid .simple-gallery-img {
+  aspect-ratio: var(--simple-gallery-aspect-ratio, 1);
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--simple-gallery-radius);
+}
+
+.simple-gallery-root.simple-gallery-force-masonry .simple-gallery-grid {
+  grid-auto-rows: var(--simple-gallery-row-unit);
+}
+
+.simple-gallery-root.simple-gallery-force-masonry .simple-gallery-item {
+  grid-row-end: span var(--simple-gallery-row-span, 20);
+}
+
+.simple-gallery-root.simple-gallery-force-masonry .simple-gallery-img {
+  aspect-ratio: auto;
+  height: auto;
+  border-radius: var(--simple-gallery-radius) var(--simple-gallery-radius) 0 0;
+}
+
+.simple-gallery-root.simple-gallery-force-hide-captions .simple-gallery-caption {
+  display: none;
+}
+
+.simple-gallery-root.simple-gallery-force-show-captions .simple-gallery-caption {
+  display: block;
 }
 
 /* --- Broken/unresolved image placeholder --- */

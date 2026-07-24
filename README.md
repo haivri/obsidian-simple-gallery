@@ -20,6 +20,15 @@ list bullets — and run **Convert selection to gallery** from the command palet
 selection at all? It picks up the paragraph of images around your cursor automatically.
 
 <p align="center">
+  <img src="assets/simple-gallery-reorder.png" alt="Clicking and dragging a thumbnail to reorder a gallery, with the underlying code block updating to match" width="900">
+</p>
+
+### Reorder by dragging
+
+Click and drag a thumbnail to a new spot in the same gallery. The code block's source
+updates immediately to match — no manual list-editing needed.
+
+<p align="center">
   <img src="assets/simple-gallery-masonry.png" alt="Simple Gallery rendering a Brussels sprouts recipe with the default Masonry layout" width="900">
 </p>
 
@@ -46,6 +55,8 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
 - A **Convert selection to gallery** command turns existing images already in a note —
   bulleted or not, selected or not — straight into a gallery block. An **Insert empty
   gallery block** command starts one from scratch.
+- Reorder photos by clicking and dragging a thumbnail — the note's underlying code block
+  updates to match, no manual editing required.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.
@@ -53,7 +64,8 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
   blurb — all opt-in; a plain list of images works with none of them.
 - Default **Masonry** layout sizes each thumbnail from its own photo's natural
   proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
-  clean, uniform tiles instead.
+  clean, uniform tiles instead. Every setting — layout, thumbnail size, gap, captions —
+  can also be overridden for a single gallery, right in its code block.
 - Broken or unresolved image references degrade gracefully to an inline placeholder.
 - A documented set of CSS custom properties for deeper visual customization via snippets.
 - Works without external services on desktop and mobile.
@@ -83,6 +95,12 @@ block. Or skip typing it out entirely — see **Commands** below.
 Add an optional caption on the line directly below an item, indented and prefixed with
 `caption:`. Captions are entirely optional — leave them off any item you don't want one for.
 
+### Reordering
+
+Click and drag any thumbnail to a new position to reorder it — the gallery's code block is
+rewritten to match right away. Dragging is scoped to one section (or the whole gallery, if
+it has no sections) at a time; dragging an item into a different section isn't supported.
+
 ### Sections and notes
 
 For a longer gallery, group images under labeled sections, each with its own optional
@@ -106,6 +124,30 @@ blurb, plus an optional intro blurb for the whole gallery:
 Sections and notes are entirely optional. A block with no `section:` lines at all renders
 exactly like the plain list above — one flat gallery, no headings.
 
+### Per-gallery overrides
+
+Every setting in **Settings → Simple Gallery** is really just a default. Any single
+gallery can override one or more of them by adding a line before its first `section:` or
+image — the rest of the settings, and every other gallery in the vault, are unaffected:
+
+    ```simple-gallery
+    layout: grid
+    min-size: 220
+    gap: 4
+    captions: false
+    - ![[brussels-1.jpg]]
+    - ![[brussels-2.jpg]]
+    ```
+
+- **`layout: masonry` / `layout: grid`** — Overrides the Layout setting for this gallery only.
+- **`min-size: <pixels>`** — Overrides Minimum thumbnail size for this gallery only.
+- **`gap: <pixels>`** — Overrides Gap between images for this gallery only.
+- **`captions: true` / `captions: false`** — Overrides Show captions for this gallery only.
+
+All four are optional and independent — use just the ones you need. They only take effect
+before the first `section:` or image line; anywhere after that, they're ignored like any
+other stray text.
+
 > **Note:** this syntax is YAML-inspired, not strict YAML. Real YAML treats a leading `!`
 > as a tag indicator and can't parse an unquoted `![[...]]` embed, which would force
 > quoting every image link. Simple Gallery instead uses a small, tolerant line parser built
@@ -128,6 +170,9 @@ exactly like the plain list above — one flat gallery, no headings.
   it with a real filename.
 
 ## Settings
+
+These are the defaults for every gallery in the vault. Any single gallery can override
+any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 
 - **Layout** — **Masonry** (default) sizes each thumbnail from its own photo's
   proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles

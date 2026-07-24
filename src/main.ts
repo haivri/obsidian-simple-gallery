@@ -7,7 +7,8 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
-  SettingDefinitionItem
+  SettingDefinitionItem,
+  TFile
 } from 'obsidian';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,11 @@ export interface GallerySection {
 
 export interface GalleryBlock {
   intro?: string;
+  /** Per-gallery overrides of the global settings; undefined fields defer to the setting. */
+  layout?: GalleryLayout;
+  minThumbnailSize?: number;
+  gapSize?: number;
+  showCaptions?: boolean;
   sections: GallerySection[];
 }
 
@@ -63,6 +69,10 @@ const ITEM_LINE = /^-\s+(.+?)\s*$/;
 const SECTION_LINE = /^section:\s*(.*)$/i;
 const CAPTION_LINE = /^caption:\s*(.*)$/i;
 const NOTE_LINE = /^note:\s*(.*)$/i;
+const LAYOUT_LINE = /^layout:\s*(masonry|grid)\s*$/i;
+const MIN_SIZE_LINE = /^min-size:\s*(\d+)\s*$/i;
+const GAP_LINE = /^gap:\s*(\d+)\s*$/i;
+const CAPTIONS_LINE = /^captions:\s*(true|false)\s*$/i;
 const EMBED_LINK = /^!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
 
 function stripEmbedBrackets(reference: string): string {
@@ -110,10 +120,37 @@ export function parseGalleryBlock(source: string): GalleryBlock {
         continue;
       }
 
-      const introMatch = NOTE_LINE.exec(trimmed);
-      if (introMatch && !sawAnyContent && block.intro === undefined) {
-        block.intro = introMatch[1].trim();
-        continue;
+      // Preamble-only fields: recognized only before the first section/item line.
+      if (!sawAnyContent) {
+        const layoutMatch = LAYOUT_LINE.exec(trimmed);
+        if (layoutMatch && block.layout === undefined) {
+          block.layout = layoutMatch[1].toLowerCase() as GalleryLayout;
+          continue;
+        }
+
+        const minSizeMatch = MIN_SIZE_LINE.exec(trimmed);
+        if (minSizeMatch && block.minThumbnailSize === undefined) {
+          block.minThumbnailSize = Number(minSizeMatch[1]);
+          continue;
+        }
+
+        const gapMatch = GAP_LINE.exec(trimmed);
+        if (gapMatch && block.gapSize === undefined) {
+          block.gapSize = Number(gapMatch[1]);
+          continue;
+        }
+
+        const captionsMatch = CAPTIONS_LINE.exec(trimmed);
+        if (captionsMatch && block.showCaptions === undefined) {
+          block.showCaptions = captionsMatch[1].toLowerCase() === 'true';
+          continue;
+        }
+
+        const introMatch = NOTE_LINE.exec(trimmed);
+        if (introMatch && block.intro === undefined) {
+          block.intro = introMatch[1].trim();
+          continue;
+        }
       }
 
       // Stray top-level text (including a misplaced "caption:"/"note:"): ignored.
@@ -154,6 +191,37 @@ function basename(linkpath: string): string {
   return parts[parts.length - 1];
 }
 
+/**
+ * The inverse of parseGalleryBlock: turns a (possibly edited, e.g.
+ * reordered) GalleryBlock back into the full source text of a
+ * simple-gallery code block, fences included, ready to replace the
+ * original block's lines in the file verbatim.
+ */
+export function serializeGalleryBlock(block: GalleryBlock): string {
+  const preamble: string[] = [];
+  if (block.intro) preamble.push(`note: ${block.intro}`);
+  if (block.layout !== undefined) preamble.push(`layout: ${block.layout}`);
+  if (block.minThumbnailSize !== undefined) preamble.push(`min-size: ${block.minThumbnailSize}`);
+  if (block.gapSize !== undefined) preamble.push(`gap: ${block.gapSize}`);
+  if (block.showCaptions !== undefined) preamble.push(`captions: ${block.showCaptions}`);
+
+  const body: string[] = [];
+  for (const section of block.sections) {
+    if (section.label !== undefined) {
+      if (body.length > 0) body.push('');
+      body.push(`section: ${section.label}`);
+      if (section.note) body.push(`  note: ${section.note}`);
+    }
+    for (const item of section.items) {
+      body.push(`- ${item.raw}`);
+      if (item.caption) body.push(`  caption: ${item.caption}`);
+    }
+  }
+
+  const lines = preamble.length > 0 && body.length > 0 ? [...preamble, '', ...body] : [...preamble, ...body];
+  return ['```simple-gallery', ...lines, '```'].join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Resolution: the same mechanism Obsidian uses internally for embeds, plus a
 // passthrough for remote images (from a pasted Markdown image link).
@@ -172,8 +240,33 @@ function resolveGalleryImageSrc(app: App, linkpath: string, sourcePath: string):
 // Rendering
 // ---------------------------------------------------------------------------
 
+/**
+ * Applies this gallery's own layout/min-size/gap/captions fields, if any, on
+ * top of the global settings. Numeric overrides are plain CSS custom
+ * properties set directly on the block's root element, which naturally win
+ * over the inherited value from <body> -- no extra CSS rules needed. Layout
+ * and captions are boolean-ish choices instead, so they're applied as
+ * higher-specificity classes that explicitly override the body-level class
+ * in either direction.
+ */
+function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
+  if (block.layout === 'grid') el.addClass('simple-gallery-force-grid');
+  else if (block.layout === 'masonry') el.addClass('simple-gallery-force-masonry');
+
+  if (block.showCaptions === false) el.addClass('simple-gallery-force-hide-captions');
+  else if (block.showCaptions === true) el.addClass('simple-gallery-force-show-captions');
+
+  if (block.minThumbnailSize !== undefined) {
+    el.style.setProperty('--simple-gallery-min-size', `${block.minThumbnailSize}px`);
+  }
+  if (block.gapSize !== undefined) {
+    el.style.setProperty('--simple-gallery-gap', `${block.gapSize}px`);
+  }
+}
+
 function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
   el.addClass('simple-gallery-root');
+  applyBlockOverrides(el, block);
 
   if (block.intro) {
     el.createEl('p', { cls: 'simple-gallery-note simple-gallery-intro', text: block.intro });
@@ -317,25 +410,115 @@ class GalleryRenderChild extends MarkdownRenderChild {
   private observer: ResizeObserver | null = null;
   private scheduled = false;
 
+  private draggedSectionIndex = -1;
+  private draggedItemIndex = -1;
+
+  constructor(
+    containerEl: HTMLElement,
+    private readonly app: App,
+    private readonly ctx: MarkdownPostProcessorContext,
+    private readonly block: GalleryBlock
+  ) {
+    super(containerEl);
+  }
+
   onload(): void {
     const grids = Array.from(this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-grid'));
     if (grids.length === 0) return;
 
     this.observer = new ResizeObserver(() => this.scheduleRecompute(grids));
-    for (const grid of grids) {
-      this.observer.observe(grid);
+    grids.forEach((grid, sectionIndex) => {
+      this.observer?.observe(grid);
       grid.querySelectorAll<HTMLImageElement>('img.simple-gallery-img').forEach((img) => {
         if (!img.complete) {
           this.registerDomEvent(img, 'load', () => this.scheduleRecompute(grids));
         }
       });
-    }
+      this.wireDragAndDrop(grid, sectionIndex);
+    });
     this.scheduleRecompute(grids);
   }
 
   onunload(): void {
     this.observer?.disconnect();
     this.observer = null;
+  }
+
+  /**
+   * Native HTML5 drag-and-drop, scoped to reordering within a single
+   * section's grid -- no external library. A real drag (pointer movement
+   * while held) suppresses the following click, so this doesn't interfere
+   * with a plain click opening a lightbox plugin; only a genuine drag ever
+   * reaches these handlers.
+   */
+  private wireDragAndDrop(grid: HTMLElement, sectionIndex: number): void {
+    const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
+
+    items.forEach((itemEl, itemIndex) => {
+      itemEl.draggable = true;
+      itemEl.addClass('simple-gallery-draggable');
+
+      this.registerDomEvent(itemEl, 'dragstart', (evt: DragEvent) => {
+        this.draggedSectionIndex = sectionIndex;
+        this.draggedItemIndex = itemIndex;
+        itemEl.addClass('simple-gallery-dragging');
+        evt.dataTransfer?.setData('text/plain', ''); // Firefox requires this for the drag to start.
+        if (evt.dataTransfer) evt.dataTransfer.effectAllowed = 'move';
+      });
+
+      this.registerDomEvent(itemEl, 'dragover', (evt: DragEvent) => {
+        if (this.draggedSectionIndex !== sectionIndex) return;
+        evt.preventDefault();
+        if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'move';
+        itemEl.addClass('simple-gallery-drop-target');
+      });
+
+      this.registerDomEvent(itemEl, 'dragleave', () => {
+        itemEl.removeClass('simple-gallery-drop-target');
+      });
+
+      this.registerDomEvent(itemEl, 'drop', (evt: DragEvent) => {
+        evt.preventDefault();
+        itemEl.removeClass('simple-gallery-drop-target');
+        const fromIndex = this.draggedItemIndex;
+        if (this.draggedSectionIndex !== sectionIndex || fromIndex === itemIndex || fromIndex < 0) return;
+
+        grid.insertBefore(items[fromIndex], fromIndex < itemIndex ? itemEl.nextSibling : itemEl);
+        void this.commitReorder(sectionIndex, fromIndex, itemIndex);
+      });
+
+      this.registerDomEvent(itemEl, 'dragend', () => {
+        itemEl.removeClass('simple-gallery-dragging');
+        grid.querySelectorAll('.simple-gallery-drop-target').forEach((el) => el.removeClass('simple-gallery-drop-target'));
+        this.draggedSectionIndex = -1;
+        this.draggedItemIndex = -1;
+      });
+    });
+  }
+
+  /**
+   * Reorders the in-memory model to match the DOM move already made (for
+   * instant visual feedback) and writes the whole gallery block back to the
+   * file. Obsidian re-renders the block from the new source afterward,
+   * which settles on the same order -- so a stale line-range lookup here
+   * just means the edit is silently dropped rather than corrupting the file.
+   */
+  private async commitReorder(sectionIndex: number, fromIndex: number, toIndex: number): Promise<void> {
+    const section = this.block.sections[sectionIndex];
+    if (!section) return;
+    const [moved] = section.items.splice(fromIndex, 1);
+    section.items.splice(toIndex, 0, moved);
+
+    const info = this.ctx.getSectionInfo(this.containerEl);
+    const file = this.app.vault.getAbstractFileByPath(this.ctx.sourcePath);
+    if (!info || !(file instanceof TFile)) return;
+
+    const replacement = serializeGalleryBlock(this.block);
+    await this.app.vault.process(file, (data) => {
+      const lines = data.split('\n');
+      lines.splice(info.lineStart, info.lineEnd - info.lineStart + 1, ...replacement.split('\n'));
+      return lines.join('\n');
+    });
   }
 
   private scheduleRecompute(grids: HTMLElement[]): void {
@@ -386,7 +569,7 @@ export default class SimpleGalleryPlugin extends Plugin {
       (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
         const block = parseGalleryBlock(source);
         renderGalleryBlock(this.app, block, el, ctx.sourcePath);
-        ctx.addChild(new GalleryRenderChild(el));
+        ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block));
       }
     );
 

@@ -20,6 +20,10 @@ Before submitting a change:
    with no bullets, a selection with non-image content mixed in (should be excluded), and
    with nothing selected (should fall back to the paragraph around the cursor). Test
    **Insert empty gallery block** as well.
+9. Test dragging a thumbnail to reorder it within a section (and within a flat, sectionless
+   gallery), including a gallery with per-gallery `layout:`/`min-size:`/`gap:`/`captions:`
+   overrides — confirm the code block is rewritten correctly and the override lines are
+   preserved.
 
 Keep the plugin simple and local-first. New functionality must not transmit vault content
 without explicit user action and clear documentation. Do not include vault content or
