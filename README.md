@@ -113,7 +113,9 @@ photo reveals the same layout without an extra menu: section above and below for
 center column, with larger sizing at lower left and caption settings at lower right. Tapping
 elsewhere closes them; tapping another photo moves the controls there immediately. A second
 tap on the active photo closes its controls and leaves the tap available to an installed
-fullscreen or lightbox plugin.
+fullscreen or lightbox plugin. With the [Fullscreen Image](https://github.com/haivri/obsidian-fullscreen-image)
+plugin installed, a photo opened from a gallery also gets prev/next navigation across the
+whole gallery — arrow buttons, a position counter, and the left/right arrow keys.
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.
