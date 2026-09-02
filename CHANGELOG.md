@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2 - 2026-09-02
+
+- Fixed featured ("Make photo larger") photos not actually growing in a gallery set to Grid or Masonry while the global layout is Justified: the justified layout's fixed item width leaked into the overriding gallery, so the featured cell spanned two columns but its image stayed pinned at the justified width. (In Justified layout itself, featured intentionally has no effect — rows always keep every photo at natural proportions.)
+
 ## 1.6.1 - 2026-09-02
 
 - Clarified that **Caption length** governs the gallery view only; the fullscreen viewer's caption length is Fullscreen Image's own setting, defaulting to the full caption even when the gallery truncates to a single line.

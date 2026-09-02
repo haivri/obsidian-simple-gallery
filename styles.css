@@ -471,8 +471,16 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   grid-auto-rows: auto;
 }
 
+/*
+ * width/flex resets matter when the GLOBAL layout is Justified: its
+ * body-level item rule fixes each item's width, which would otherwise leak
+ * into a gallery that forces Grid/Masonry and pin every item (featured
+ * ones most visibly) at the justified width inside its grid cell.
+ */
 .simple-gallery-root.simple-gallery-force-grid .simple-gallery-item {
   grid-row-end: auto;
+  width: auto;
+  flex: none;
 }
 
 .simple-gallery-root.simple-gallery-force-grid .simple-gallery-item-featured {
@@ -496,6 +504,8 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 
 .simple-gallery-root.simple-gallery-force-masonry .simple-gallery-item {
   grid-row-end: span var(--simple-gallery-row-span, 20);
+  width: auto;
+  flex: none;
 }
 
 .simple-gallery-root.simple-gallery-force-masonry .simple-gallery-img {
