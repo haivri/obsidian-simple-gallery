@@ -11,6 +11,7 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
+  setIcon,
   Setting,
   SettingDefinitionItem,
   TFile
@@ -29,6 +30,38 @@ type CaptionFont = 'default' | 'monospace';
 type CaptionLines = 'full' | 'single';
 type CaptionAlign = 'left' | 'center' | 'right' | 'justify';
 type CaptionPlacement = 'below' | 'overlay';
+/** Where a caption appears: the gallery view, a fullscreen viewer, both, or neither. */
+type CaptionVisibility = 'both' | 'gallery' | 'fullscreen' | 'hidden';
+
+/** Accepts the legacy true/false tokens alongside the four visibility words. */
+function parseCaptionVisibility(token: string): CaptionVisibility {
+  const value = token.toLowerCase();
+  if (value === 'true' || value === 'both') return 'both';
+  if (value === 'false' || value === 'hidden') return 'hidden';
+  return value === 'fullscreen' ? 'fullscreen' : 'gallery';
+}
+
+/** Round-trips the common cases as the friendlier true/false. */
+function serializeCaptionVisibility(visibility: CaptionVisibility): string {
+  if (visibility === 'both') return 'true';
+  if (visibility === 'hidden') return 'false';
+  return visibility;
+}
+
+function visibleInGallery(visibility: CaptionVisibility): boolean {
+  return visibility === 'both' || visibility === 'gallery';
+}
+
+/**
+ * Tells a fullscreen/lightbox plugin whether to show this caption, since
+ * "fullscreen only" captions are display:none in the note and a viewer
+ * cannot infer that from visibility alone. Read by Fullscreen Image; the
+ * coupling stays DOM-only.
+ */
+function stampFullscreenCaption(captionEl: HTMLElement, visibility: CaptionVisibility): void {
+  captionEl.dataset.fullscreenCaption =
+    visibility === 'both' || visibility === 'fullscreen' ? 'show' : 'hide';
+}
 
 function isCaptionAlign(value: string): value is CaptionAlign {
   return value === 'left' || value === 'center' || value === 'right' || value === 'justify';
@@ -55,7 +88,7 @@ function swallowNextClick(): void {
 interface SimpleGallerySettings {
   minThumbnailSize: number;
   gapSize: number;
-  showCaptions: boolean;
+  captionVisibility: CaptionVisibility;
   layout: GalleryLayout;
   captionFont: CaptionFont;
   captionLines: CaptionLines;
@@ -67,8 +100,10 @@ interface SimpleGallerySettings {
 const DEFAULT_SETTINGS: SimpleGallerySettings = {
   minThumbnailSize: 160,
   gapSize: 8,
-  showCaptions: true,
-  layout: 'masonry',
+  captionVisibility: 'both',
+  // Justified is the default: equal-height rows at each photo's natural
+  // proportions is how photography presents itself.
+  layout: 'justified',
   captionFont: 'default',
   captionLines: 'full',
   captionAlign: 'center',
@@ -100,7 +135,7 @@ export interface GalleryItem {
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
   /** Per-photo caption visibility; undefined inherits the gallery/global setting. */
-  showCaption?: boolean;
+  captionVisibility?: CaptionVisibility;
 }
 
 export interface GallerySection {
@@ -116,7 +151,7 @@ export interface GalleryBlock {
   layout?: GalleryLayout;
   minThumbnailSize?: number;
   gapSize?: number;
-  showCaptions?: boolean;
+  captionVisibility?: CaptionVisibility;
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
@@ -137,7 +172,7 @@ const CAPTION_FONT_LINE = /^caption-font:\s*(default|monospace)\s*$/i;
 const CAPTION_LINES_LINE = /^caption-lines:\s*(full|single)\s*$/i;
 const CAPTION_ALIGN_LINE = /^caption-align:\s*(left|center|right|justify)\s*$/i;
 const CAPTION_PLACEMENT_LINE = /^caption-placement:\s*(below|overlay)\s*$/i;
-const CAPTIONS_LINE = /^captions:\s*(true|false)\s*$/i;
+const CAPTIONS_LINE = /^captions:\s*(true|false|both|gallery|fullscreen|hidden)\s*$/i;
 const CORNERS_LINE = /^corners:\s*(\d+)\s*$/i;
 const EMBED_LINK = /^!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
 
@@ -207,8 +242,8 @@ export function parseGalleryBlock(source: string): GalleryBlock {
         }
 
         const captionsMatch = CAPTIONS_LINE.exec(trimmed);
-        if (captionsMatch && block.showCaptions === undefined) {
-          block.showCaptions = captionsMatch[1].toLowerCase() === 'true';
+        if (captionsMatch && block.captionVisibility === undefined) {
+          block.captionVisibility = parseCaptionVisibility(captionsMatch[1]);
           continue;
         }
 
@@ -287,8 +322,8 @@ export function parseGalleryBlock(source: string): GalleryBlock {
       }
 
       const captionsMatch = CAPTIONS_LINE.exec(trimmed);
-      if (captionsMatch && item?.showCaption === undefined) {
-        item.showCaption = captionsMatch[1].toLowerCase() === 'true';
+      if (captionsMatch && item?.captionVisibility === undefined) {
+        item.captionVisibility = parseCaptionVisibility(captionsMatch[1]);
         continue;
       }
 
@@ -329,7 +364,9 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
   if (block.layout !== undefined) preamble.push(`layout: ${block.layout}`);
   if (block.minThumbnailSize !== undefined) preamble.push(`min-size: ${block.minThumbnailSize}`);
   if (block.gapSize !== undefined) preamble.push(`gap: ${block.gapSize}`);
-  if (block.showCaptions !== undefined) preamble.push(`captions: ${block.showCaptions}`);
+  if (block.captionVisibility !== undefined) {
+    preamble.push(`captions: ${serializeCaptionVisibility(block.captionVisibility)}`);
+  }
   if (block.captionFont !== undefined) preamble.push(`caption-font: ${block.captionFont}`);
   if (block.captionLines !== undefined) preamble.push(`caption-lines: ${block.captionLines}`);
   if (block.captionAlign !== undefined) preamble.push(`caption-align: ${block.captionAlign}`);
@@ -350,7 +387,9 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
       if (item.captionFont !== undefined) body.push(`  caption-font: ${item.captionFont}`);
       if (item.captionLines !== undefined) body.push(`  caption-lines: ${item.captionLines}`);
       if (item.captionAlign !== undefined) body.push(`  caption-align: ${item.captionAlign}`);
-      if (item.showCaption !== undefined) body.push(`  captions: ${item.showCaption}`);
+      if (item.captionVisibility !== undefined) {
+        body.push(`  captions: ${serializeCaptionVisibility(item.captionVisibility)}`);
+      }
     }
   }
 
@@ -408,8 +447,11 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
   else if (block.layout === 'masonry') el.addClass('simple-gallery-force-masonry');
   else if (block.layout === 'justified') el.addClass('simple-gallery-force-justified');
 
-  if (block.showCaptions === false) el.addClass('simple-gallery-force-hide-captions');
-  else if (block.showCaptions === true) el.addClass('simple-gallery-force-show-captions');
+  if (block.captionVisibility !== undefined) {
+    el.addClass(visibleInGallery(block.captionVisibility)
+      ? 'simple-gallery-force-show-captions'
+      : 'simple-gallery-force-hide-captions');
+  }
 
   if (block.captionFont === 'monospace') el.addClass('simple-gallery-force-caption-font-mono');
   else if (block.captionFont === 'default') el.addClass('simple-gallery-force-caption-font-default');
@@ -453,8 +495,11 @@ function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
   if (item.captionLines === 'single') el.addClass('simple-gallery-item-caption-lines-single');
   else if (item.captionLines === 'full') el.addClass('simple-gallery-item-caption-lines-full');
 
-  if (item.showCaption === false) el.addClass('simple-gallery-item-captions-hide');
-  else if (item.showCaption === true) el.addClass('simple-gallery-item-captions-show');
+  if (item.captionVisibility !== undefined) {
+    el.addClass(visibleInGallery(item.captionVisibility)
+      ? 'simple-gallery-item-captions-show'
+      : 'simple-gallery-item-captions-hide');
+  }
 
   if (item.captionAlign !== undefined) {
     el.style.setProperty('--simple-gallery-caption-align', item.captionAlign);
@@ -472,12 +517,13 @@ function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
 function renderGalleryBlock(plugin: SimpleGalleryPlugin, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
   el.addClass('simple-gallery-root', 'simple-gallery-editable');
   const toolbar = el.createDiv({ cls: 'simple-gallery-toolbar' });
+  // Obsidian's native clickable-icon treatment: a quiet gear glyph, no pill.
   const settingsButton = toolbar.createEl('button', {
-    cls: 'simple-gallery-toolbar-button simple-gallery-settings-button',
-    text: '⚙ Gallery settings'
+    cls: 'clickable-icon simple-gallery-toolbar-button simple-gallery-settings-button',
+    attr: { 'aria-label': 'Gallery settings' }
   });
+  setIcon(settingsButton, 'settings');
   settingsButton.type = 'button';
-  settingsButton.setAttribute('aria-label', 'Gallery settings');
 
   applyBlockOverrides(el, block);
 
@@ -521,7 +567,7 @@ function renderGalleryBlock(plugin: SimpleGalleryPlugin, block: GalleryBlock, el
     grid.dataset.sectionIndex = String(sectionIndex);
     const placement = block.captionPlacement ?? plugin.settings.captionPlacement;
     for (const item of section.items) {
-      renderGalleryItem(plugin, grid, item, sourcePath, placement);
+      renderGalleryItem(plugin, grid, item, sourcePath, placement, block.captionVisibility);
     }
   });
 }
@@ -538,7 +584,7 @@ function itemSpanKey(item: GalleryItem, src: string, placement: CaptionPlacement
     item.captionFont ?? '',
     item.captionLines ?? '',
     item.captionAlign ?? '',
-    item.showCaption === undefined ? '' : String(item.showCaption),
+    item.captionVisibility ?? '',
     placement
   ].join('|');
 }
@@ -560,7 +606,8 @@ function renderGalleryItem(
   grid: HTMLElement,
   item: GalleryItem,
   sourcePath: string,
-  placement: CaptionPlacement
+  placement: CaptionPlacement,
+  blockVisibility: CaptionVisibility | undefined
 ): void {
   const src = resolveGalleryImageSrc(plugin.app, item.linkpath, sourcePath);
   if (!src) {
@@ -590,7 +637,11 @@ function renderGalleryItem(
   renderItemMenuButton(photo);
 
   if (item.caption) {
-    figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
+    const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption', text: item.caption });
+    stampFullscreenCaption(
+      caption,
+      item.captionVisibility ?? blockVisibility ?? plugin.settings.captionVisibility
+    );
   } else {
     const caption = figure.createEl('figcaption', { cls: 'simple-gallery-caption simple-gallery-caption-empty' });
     caption.setText('Add a caption');
@@ -752,8 +803,15 @@ interface PhotoCaptionOverrides {
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
-  showCaption?: boolean;
+  captionVisibility?: CaptionVisibility;
 }
+
+const CAPTION_VISIBILITY_OPTIONS: [CaptionVisibility, string][] = [
+  ['both', 'Everywhere'],
+  ['gallery', 'Gallery only'],
+  ['fullscreen', 'Fullscreen only'],
+  ['hidden', 'Hidden']
+];
 
 const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; icon: string; label: string }[] = [
   { value: 'left', icon: 'align-left', label: 'Align left' },
@@ -799,7 +857,7 @@ class PhotoCaptionSettingsModal extends Modal {
   private captionFont?: CaptionFont;
   private captionLines?: CaptionLines;
   private captionAlign?: CaptionAlign;
-  private showCaption?: boolean;
+  private captionVisibility?: CaptionVisibility;
   private saved = false;
 
   constructor(
@@ -813,7 +871,7 @@ class PhotoCaptionSettingsModal extends Modal {
     this.captionFont = item.captionFont;
     this.captionLines = item.captionLines;
     this.captionAlign = item.captionAlign;
-    this.showCaption = item.showCaption;
+    this.captionVisibility = item.captionVisibility;
   }
 
   onOpen(): void {
@@ -827,16 +885,16 @@ class PhotoCaptionSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName('Show caption')
-      .setDesc('Hidden captions also stay hidden in a fullscreen viewer.')
-      .addDropdown((dropdown) => dropdown
-        .addOption('inherit', 'Use gallery setting')
-        .addOption('show', 'Show')
-        .addOption('hide', 'Hide')
-        .setValue(this.showCaption === undefined ? 'inherit' : this.showCaption ? 'show' : 'hide')
-        .onChange((value) => {
-          this.showCaption = value === 'show' ? true : value === 'hide' ? false : undefined;
-          this.preview();
-        }));
+      .addDropdown((dropdown) => {
+        dropdown.addOption('inherit', 'Use gallery setting');
+        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
+        dropdown
+          .setValue(this.captionVisibility ?? 'inherit')
+          .onChange((value) => {
+            this.captionVisibility = value === 'inherit' ? undefined : parseCaptionVisibility(value);
+            this.preview();
+          });
+      });
 
     new Setting(contentEl)
       .setName('Caption font')
@@ -901,7 +959,7 @@ class PhotoCaptionSettingsModal extends Modal {
       captionFont: this.captionFont,
       captionLines: this.captionLines,
       captionAlign: this.captionAlign,
-      showCaption: this.showCaption
+      captionVisibility: this.captionVisibility
     };
   }
 
@@ -913,7 +971,7 @@ class PhotoCaptionSettingsModal extends Modal {
     this.captionFont = undefined;
     this.captionLines = undefined;
     this.captionAlign = undefined;
-    this.showCaption = undefined;
+    this.captionVisibility = undefined;
     this.onOpen();
     this.preview();
   }
@@ -927,7 +985,7 @@ interface GalleryOverrides {
   layout?: GalleryLayout;
   minThumbnailSize?: number;
   gapSize?: number;
-  showCaptions?: boolean;
+  captionVisibility?: CaptionVisibility;
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
@@ -947,7 +1005,7 @@ class GallerySettingsModal extends Modal {
   private layout: GalleryLayout;
   private minThumbnailSize: number;
   private gapSize: number;
-  private showCaptions: boolean;
+  private captionVisibility: CaptionVisibility;
   private captionFont: CaptionFont;
   private captionLines: CaptionLines;
   private captionAlign: CaptionAlign;
@@ -968,7 +1026,7 @@ class GallerySettingsModal extends Modal {
     this.layout = block.layout ?? defaults.layout;
     this.minThumbnailSize = block.minThumbnailSize ?? defaults.minThumbnailSize;
     this.gapSize = block.gapSize ?? defaults.gapSize;
-    this.showCaptions = block.showCaptions ?? defaults.showCaptions;
+    this.captionVisibility = block.captionVisibility ?? defaults.captionVisibility;
     this.captionFont = block.captionFont ?? defaults.captionFont;
     this.captionLines = block.captionLines ?? defaults.captionLines;
     this.captionAlign = block.captionAlign ?? defaults.captionAlign;
@@ -1029,12 +1087,15 @@ class GallerySettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName('Show captions')
-      .addToggle((toggle) => toggle
-        .setValue(this.showCaptions)
-        .onChange((value) => {
-          this.showCaptions = value;
-          this.preview();
-        }));
+      .addDropdown((dropdown) => {
+        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
+        dropdown
+          .setValue(this.captionVisibility)
+          .onChange((value) => {
+            this.captionVisibility = parseCaptionVisibility(value);
+            this.preview();
+          });
+      });
 
     new Setting(contentEl)
       .setName('Caption font')
@@ -1090,7 +1151,8 @@ class GallerySettingsModal extends Modal {
             minThumbnailSize:
               this.minThumbnailSize === this.defaults.minThumbnailSize ? undefined : this.minThumbnailSize,
             gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
-            showCaptions: this.showCaptions === this.defaults.showCaptions ? undefined : this.showCaptions,
+            captionVisibility:
+              this.captionVisibility === this.defaults.captionVisibility ? undefined : this.captionVisibility,
             captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
             captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
             captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign,
@@ -1131,7 +1193,7 @@ class GallerySettingsModal extends Modal {
       layout: this.layout,
       minThumbnailSize: this.minThumbnailSize,
       gapSize: this.gapSize,
-      showCaptions: this.showCaptions,
+      captionVisibility: this.captionVisibility,
       captionFont: this.captionFont,
       captionLines: this.captionLines,
       captionAlign: this.captionAlign,
@@ -1144,7 +1206,7 @@ class GallerySettingsModal extends Modal {
     this.layout = this.defaults.layout;
     this.minThumbnailSize = this.defaults.minThumbnailSize;
     this.gapSize = this.defaults.gapSize;
-    this.showCaptions = this.defaults.showCaptions;
+    this.captionVisibility = this.defaults.captionVisibility;
     this.captionFont = this.defaults.captionFont;
     this.captionLines = this.defaults.captionLines;
     this.captionAlign = this.defaults.captionAlign;
@@ -1290,7 +1352,31 @@ class GalleryRenderChild extends MarkdownRenderChild {
    * an explicit nudge to recompute its masonry row-spans against the new state.
    */
   recomputeNow(): void {
+    this.refreshFullscreenCaptionStamps();
     this.scheduleRecompute(this.grids);
+  }
+
+  /**
+   * Re-derives each caption's fullscreen show/hide stamp from the current
+   * settings. Rendered galleries aren't re-rendered when a global setting
+   * changes (CSS handles the gallery view live), so the stamps a fullscreen
+   * viewer reads need this explicit refresh.
+   */
+  private refreshFullscreenCaptionStamps(): void {
+    this.grids.forEach((grid) => {
+      const sectionIndex = Number(grid.dataset.sectionIndex ?? '0');
+      grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((itemEl, itemIndex) => {
+        const item = this.block.sections[sectionIndex]?.items[itemIndex];
+        const caption = itemEl.querySelector<HTMLElement>(
+          ':scope > .simple-gallery-caption:not(.simple-gallery-caption-empty)'
+        );
+        if (!item || !caption) return;
+        stampFullscreenCaption(
+          caption,
+          item.captionVisibility ?? this.block.captionVisibility ?? this.plugin.settings.captionVisibility
+        );
+      });
+    });
   }
 
   onunload(): void {
@@ -1422,7 +1508,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     item.captionFont = overrides.captionFont;
     item.captionLines = overrides.captionLines;
     item.captionAlign = overrides.captionAlign;
-    item.showCaption = overrides.showCaption;
+    item.captionVisibility = overrides.captionVisibility;
     await this.writeBlockToFile();
   }
 
@@ -1486,7 +1572,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.block.layout = overrides.layout;
     this.block.minThumbnailSize = overrides.minThumbnailSize;
     this.block.gapSize = overrides.gapSize;
-    this.block.showCaptions = overrides.showCaptions;
+    this.block.captionVisibility = overrides.captionVisibility;
     this.block.captionFont = overrides.captionFont;
     this.block.captionLines = overrides.captionLines;
     this.block.captionAlign = overrides.captionAlign;
@@ -1889,8 +1975,15 @@ export default class SimpleGalleryPlugin extends Plugin {
   }
 
   async onload(): Promise<void> {
-    const stored = (await this.loadData()) as Partial<SimpleGallerySettings> | null;
+    const stored = (await this.loadData()) as
+      | (Partial<SimpleGallerySettings> & { showCaptions?: boolean })
+      | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+    // Settings saved before 1.5.0 stored a boolean showCaptions.
+    if (stored?.captionVisibility === undefined && stored?.showCaptions !== undefined) {
+      this.settings.captionVisibility = stored.showCaptions ? 'both' : 'hidden';
+    }
+    delete (this.settings as Partial<SimpleGallerySettings> & { showCaptions?: boolean }).showCaptions;
     this.applyAppearanceSettings();
     this.addSettingTab(new SimpleGallerySettingTab(this.app, this));
 
@@ -2037,7 +2130,10 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.style.setProperty('--simple-gallery-gap', `${this.settings.gapSize}px`);
     document.body.style.setProperty('--simple-gallery-caption-align', this.settings.captionAlign);
     document.body.style.setProperty('--simple-gallery-radius', `${this.settings.cornerRadius}px`);
-    document.body.classList.toggle('simple-gallery-hide-captions', !this.settings.showCaptions);
+    document.body.classList.toggle(
+      'simple-gallery-hide-captions',
+      !visibleInGallery(this.settings.captionVisibility)
+    );
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
     document.body.classList.toggle('simple-gallery-layout-justified', this.settings.layout === 'justified');
     document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
@@ -2053,8 +2149,10 @@ const LAYOUT_DESC =
   'portfolio-style look. Grid uses uniform tiles for a clean, rigid look. Justified ' +
   'packs photos into equal-height rows at their exact proportions, never cropping.';
 const SHOW_CAPTIONS_DESC =
-  'Display captions under images that have one. Turn off for a clean, caption-free grid ' +
-  '— useful for print or export — without removing captions from the source.';
+  'Where captions appear. Everywhere shows them in the gallery and fullscreen. Gallery ' +
+  'only and Fullscreen only limit them to one view — Fullscreen only keeps the grid clean ' +
+  'and reveals the caption when a photo is opened. Hidden turns them off without removing ' +
+  'them from the source.';
 const CAPTION_PLACEMENT_DESC =
   'Below keeps each caption in its own row beneath the photo. Over lays the caption on the ' +
   'photo’s bottom edge — denser, and adding a caption never changes the gallery’s layout.';
@@ -2097,9 +2195,15 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         name: 'Show captions',
         desc: SHOW_CAPTIONS_DESC,
         control: {
-          type: 'toggle',
-          key: 'showCaptions',
-          defaultValue: DEFAULT_SETTINGS.showCaptions
+          type: 'dropdown',
+          key: 'captionVisibility',
+          defaultValue: DEFAULT_SETTINGS.captionVisibility,
+          options: {
+            both: 'Everywhere',
+            gallery: 'Gallery only',
+            fullscreen: 'Fullscreen only',
+            hidden: 'Hidden'
+          }
         }
       },
       {
@@ -2162,7 +2266,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
   getControlValue(key: string): unknown {
     switch (key) {
       case 'layout': return this.plugin.settings.layout;
-      case 'showCaptions': return this.plugin.settings.showCaptions;
+      case 'captionVisibility': return this.plugin.settings.captionVisibility;
       case 'captionFont': return this.plugin.settings.captionFont;
       case 'captionLines': return this.plugin.settings.captionLines;
       case 'captionAlign': return this.plugin.settings.captionAlign;
@@ -2177,8 +2281,8 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       case 'layout':
         if (typeof value === 'string' && isGalleryLayout(value)) this.plugin.settings.layout = value;
         break;
-      case 'showCaptions':
-        if (typeof value === 'boolean') this.plugin.settings.showCaptions = value;
+      case 'captionVisibility':
+        if (typeof value === 'string') this.plugin.settings.captionVisibility = parseCaptionVisibility(value);
         break;
       case 'captionFont':
         if (value === 'default' || value === 'monospace') this.plugin.settings.captionFont = value;
@@ -2237,12 +2341,15 @@ class SimpleGallerySettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Show captions')
       .setDesc(SHOW_CAPTIONS_DESC)
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showCaptions)
-        .onChange(async (value) => {
-          this.plugin.settings.showCaptions = value;
-          await this.plugin.saveSettings();
-        }));
+      .addDropdown((dropdown) => {
+        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
+        dropdown
+          .setValue(this.plugin.settings.captionVisibility)
+          .onChange(async (value) => {
+            this.plugin.settings.captionVisibility = parseCaptionVisibility(value);
+            await this.plugin.saveSettings();
+          });
+      });
 
     new Setting(containerEl)
       .setName('Caption placement')

@@ -44,36 +44,28 @@ body {
   gap: 0.45em;
 }
 
-/* Kept in normal flow so neither it nor Obsidian's edit-block button covers a photo. */
+/*
+ * The button itself is Obsidian's native clickable-icon; these rules only
+ * handle its reveal. Kept in normal flow so neither it nor Obsidian's
+ * edit-block button covers a photo.
+ */
 .simple-gallery-toolbar-button {
-  min-height: 1.8em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.2em 0.65em;
-  font-size: 0.85em;
-  color: var(--text-muted);
-  background: var(--background-secondary);
-  border: 1px solid var(--simple-gallery-border);
-  border-radius: 999px;
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  cursor: pointer;
-  transition: visibility 120ms ease-out, opacity 120ms ease-out, color 120ms ease-out;
+  transition: visibility 120ms ease-out, opacity 120ms ease-out;
 }
 
 .simple-gallery-root:hover .simple-gallery-toolbar-button,
 .simple-gallery-root:focus-within .simple-gallery-toolbar-button,
 .simple-gallery-root.simple-gallery-selected .simple-gallery-toolbar-button {
   visibility: visible;
-  opacity: 0.85;
+  opacity: 0.8;
   pointer-events: auto;
 }
 
 .simple-gallery-toolbar-button:hover {
   opacity: 1;
-  color: var(--text-normal);
 }
 
 /*

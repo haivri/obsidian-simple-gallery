@@ -27,14 +27,15 @@ placeholder on a photo that doesn't have one yet) or a section's name to edit it
 there. Press Enter or click away to save, Escape to cancel. A section name may be left
 blank; its transparent header row still preserves the section break and remains clickable.
 
-### An artistic, photographer-style default
+### A photographer-style default
 
-Masonry sizes each thumbnail from its own photo's proportions — tall photos get a taller
-cell, wide photos a wider one — with no manual tagging required.
+Justified — the default — packs photos into equal-height rows at their exact proportions,
+never cropping: the way photography books and portfolio sites present a set of images.
 
-### A clean, uniform alternative
+### Two alternatives
 
-Switch to the **Grid** layout in settings for evenly cropped, uniform tiles instead.
+Switch to **Masonry** in settings for a column-flow look that sizes each thumbnail from
+its own photo's proportions, or **Grid** for evenly cropped, uniform tiles.
 
 ## Features
 
@@ -55,12 +56,11 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
 - Optional per-image captions, any number of featured photos, optional `section:`
   groupings, and an optional intro blurb — all opt-in; a plain list of images works with
   none of them.
-- Default **Masonry** layout sizes each thumbnail from its own photo's natural
-  proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
-  clean, uniform tiles; **Justified** packs photos into equal-height rows at their exact
-  proportions, never cropping — the classic photography-portfolio presentation. Every
-  setting — layout, thumbnail size, gap, captions — can also be overridden for a single
-  gallery, right in its code block.
+- Default **Justified** layout packs photos into equal-height rows at their exact
+  proportions, never cropping — the classic photography-portfolio presentation. Optional
+  **Masonry** (column-flow, sized by each photo's proportions) and **Grid** (uniform,
+  cropped tiles) layouts. Every setting — layout, thumbnail size, gap, captions — can
+  also be overridden for a single gallery, right in its code block.
 - Broken or unresolved image references degrade gracefully to an inline placeholder.
 - A documented set of CSS custom properties for deeper visual customization via snippets.
 - Works without external services on desktop and mobile.
@@ -147,7 +147,7 @@ whole gallery — arrow buttons, a position counter, and the left/right arrow ke
 - **Remove a photo** — **Remove photo** in the "⋯" menu takes just that photo out of the
   gallery block. The image file itself stays in the vault untouched. It works on a
   broken-reference placeholder too, which is the easiest way to clear one out.
-- **Gallery settings** — Use the **⚙ Gallery settings** control in the toolbar above the
+- **Gallery settings** — Use the gear icon that appears above the
   photos to open the same Layout / thumbnail size / gap / corners / captions / caption font / caption
   length / caption alignment controls as the main Settings tab, scoped to just this gallery.
   **Reset to defaults** previews the current global defaults and removes this gallery's
@@ -214,7 +214,9 @@ image — the rest of the settings, and every other gallery in the vault, are un
   rows always keep every photo at its natural proportions.)
 - **`min-size: <pixels>`** — Overrides Minimum thumbnail size for this gallery only.
 - **`gap: <pixels>`** — Overrides Gap between images for this gallery only.
-- **`captions: true` / `captions: false`** — Overrides Show captions for this gallery only.
+- **`captions: true` / `captions: false` / `captions: gallery` / `captions: fullscreen`** —
+  Overrides Show captions for this gallery only: everywhere, hidden, gallery view only, or
+  fullscreen viewer only.
 - **`caption-font: default` / `caption-font: monospace`** — Overrides Caption font for this
   gallery only.
 - **`caption-lines: full` / `caption-lines: single`** — Overrides Caption length for this
@@ -233,10 +235,10 @@ other stray text.
 
 ### Per-photo caption overrides
 
-The same three caption appearance fields — plus a per-photo `captions: true`/`captions:
-false` visibility override — can be indented beneath one image to affect only that photo.
-A caption hidden this way (or by the gallery/global Show captions setting) also stays
-hidden in a fullscreen viewer. The photo menu's **Caption settings…** writes these for you:
+The same three caption appearance fields — plus a per-photo `captions:` visibility
+override taking the same everywhere/hidden/gallery/fullscreen values as the gallery-level
+field — can be indented beneath one image to affect only that photo. The photo menu's
+**Caption settings…** writes these for you:
 
     ```simple-gallery
     - ![[brussels-1.jpg]]
@@ -277,17 +279,18 @@ inheriting that setting from the gallery.
 These are the defaults for every gallery in the vault. Any single gallery can override
 any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 
-- **Layout** — **Masonry** (default) sizes each thumbnail from its own photo's
-  proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles.
-  **Justified** packs photos into equal-height rows at their exact proportions, never
-  cropping — the classic photography-portfolio presentation, at its best with captions
-  hidden or placed over the photo. Switching this instantly updates any gallery already open.
+- **Layout** — **Justified** (default) packs photos into equal-height rows at their exact
+  proportions, never cropping — the classic photography-portfolio presentation, at its
+  best with captions hidden or placed over the photo. **Masonry** sizes each thumbnail
+  from its own photo's proportions in a column flow. **Grid** uses uniform, cropped
+  tiles. Switching this instantly updates any gallery already open.
 - **Rounded corners** — Corner roundness of each thumbnail, in pixels. 0 (default) keeps
   photos square-cornered, the way a print or portfolio usually presents them; raise it for
   a softer, card-like look.
-- **Show captions** — Display captions under images that have one. Turn this off for a
-  clean, caption-free grid — useful for print or export — without removing captions from
-  the source.
+- **Show captions** — Where captions appear: **Everywhere** (default), **Gallery only**,
+  **Fullscreen only** (a photographer's favorite: the grid stays clean and the caption
+  appears when a photo is opened in a fullscreen viewer), or **Hidden** — all without
+  removing captions from the source.
 - **Caption placement** — **Below the photo** (default) gives each caption its own row.
   **Over the photo** lays the caption on the photo's bottom edge in a translucent strip —
   denser, and adding or editing a caption never shifts the gallery's layout.

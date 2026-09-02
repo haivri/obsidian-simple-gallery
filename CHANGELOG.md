@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 - 2026-09-02
+
+- **Justified is now the default layout** — equal-height photo rows at exact proportions is how photography presents itself. Masonry and Grid remain a dropdown away, globally or per gallery.
+- **Show captions** grew from on/off into a four-way choice at every level (global, per-gallery `captions:`, per-photo): **Everywhere** (default), **Gallery only**, **Fullscreen only** — the clean-grid-caption-on-open combination — or **Hidden**. Legacy `captions: true/false` lines and stored settings map to Everywhere/Hidden automatically. Each caption carries a `data-fullscreen-caption` stamp so a fullscreen viewer can honor "Fullscreen only" even though the caption is display-none in the note.
+- The gallery toolbar's settings control is now a native Obsidian icon button (a quiet gear that brightens on hover) instead of the old bordered pill.
+
 ## 1.4.0 - 2026-09-02
 
 - New **Justified** layout (global setting, or `layout: justified` per gallery): photos pack into equal-height rows at their exact proportions, never cropped — the classic photography-portfolio presentation. Full rows scale to fill the width exactly; the trailing partial row keeps the target height instead of stretching. It pairs best with captions hidden or placed over the photo, since below-photo captions of different heights make any layout's rows ragged.
