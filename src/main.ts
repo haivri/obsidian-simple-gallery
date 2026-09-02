@@ -4,6 +4,7 @@ import {
   EditorPosition,
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
+  ButtonComponent,
   MarkdownView,
   Menu,
   Modal,
@@ -27,6 +28,24 @@ type CaptionPlacement = 'below' | 'overlay';
 
 function isCaptionAlign(value: string): value is CaptionAlign {
   return value === 'left' || value === 'center' || value === 'right' || value === 'justify';
+}
+
+/**
+ * The click that dismisses an open caption/title editor must do only that.
+ * Without this, clicking another photo while editing blurs the input AND
+ * lands on the photo, opening it in a fullscreen/lightbox plugin. Window
+ * capture runs before any document-level capture listener (Obsidian's and
+ * other plugins' included), so the one dismissal click is fully absorbed.
+ */
+function swallowNextClick(): void {
+  const swallow = (evt: MouseEvent): void => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    evt.stopImmediatePropagation();
+  };
+  window.addEventListener('click', swallow, { capture: true, once: true });
+  // If no click follows the pointerdown (e.g. it became a drag), disarm.
+  window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 400);
 }
 
 interface SimpleGallerySettings {
@@ -714,6 +733,46 @@ interface PhotoCaptionOverrides {
   captionAlign?: CaptionAlign;
 }
 
+const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; icon: string; label: string }[] = [
+  { value: 'left', icon: 'align-left', label: 'Align left' },
+  { value: 'center', icon: 'align-center', label: 'Align center' },
+  { value: 'right', icon: 'align-right', label: 'Align right' },
+  { value: 'justify', icon: 'align-justify', label: 'Justify' }
+];
+
+/**
+ * The familiar four alignment icon buttons in place of a dropdown. With
+ * allowClear, clicking the already-active button clears the override back
+ * to "inherit" (the per-photo modal's "use gallery setting").
+ */
+function addCaptionAlignButtons(
+  setting: Setting,
+  getValue: () => CaptionAlign | undefined,
+  setValue: (value: CaptionAlign | undefined) => void,
+  allowClear: boolean
+): void {
+  const buttons = new Map<CaptionAlign, ButtonComponent>();
+  const refresh = (): void => {
+    const current = getValue();
+    buttons.forEach((button, align) =>
+      button.buttonEl.toggleClass('simple-gallery-align-active', align === current));
+  };
+  for (const option of CAPTION_ALIGN_OPTIONS) {
+    setting.addButton((button) => {
+      buttons.set(option.value, button);
+      button
+        .setIcon(option.icon)
+        .setTooltip(option.label)
+        .onClick(() => {
+          setValue(allowClear && getValue() === option.value ? undefined : option.value);
+          refresh();
+        });
+      button.buttonEl.addClass('simple-gallery-align-button');
+    });
+  }
+  refresh();
+}
+
 class PhotoCaptionSettingsModal extends Modal {
   private captionFont?: CaptionFont;
   private captionLines?: CaptionLines;
@@ -766,19 +825,17 @@ class PhotoCaptionSettingsModal extends Modal {
           this.preview();
         }));
 
-    new Setting(contentEl)
-      .setName('Caption alignment')
-      .addDropdown((dropdown) => dropdown
-        .addOption('inherit', 'Use gallery setting')
-        .addOption('left', 'Left')
-        .addOption('center', 'Center')
-        .addOption('right', 'Right')
-        .addOption('justify', 'Justified')
-        .setValue(this.captionAlign ?? 'inherit')
-        .onChange((value) => {
-          this.captionAlign = isCaptionAlign(value) ? value : undefined;
-          this.preview();
-        }));
+    addCaptionAlignButtons(
+      new Setting(contentEl)
+        .setName('Caption alignment')
+        .setDesc('Click the active button again to use the gallery setting.'),
+      () => this.captionAlign,
+      (value) => {
+        this.captionAlign = value;
+        this.preview();
+      },
+      true
+    );
 
     new Setting(contentEl)
       .addButton((button) => button
@@ -961,18 +1018,15 @@ class GallerySettingsModal extends Modal {
           this.preview();
         }));
 
-    new Setting(contentEl)
-      .setName('Caption alignment')
-      .addDropdown((dropdown) => dropdown
-        .addOption('left', 'Left')
-        .addOption('center', 'Center')
-        .addOption('right', 'Right')
-        .addOption('justify', 'Justified')
-        .setValue(this.captionAlign)
-        .onChange((value) => {
-          this.captionAlign = isCaptionAlign(value) ? value : 'center';
-          this.preview();
-        }));
+    addCaptionAlignButtons(
+      new Setting(contentEl).setName('Caption alignment'),
+      () => this.captionAlign,
+      (value) => {
+        this.captionAlign = value ?? this.defaults.captionAlign;
+        this.preview();
+      },
+      false
+    );
 
     new Setting(contentEl)
       .setName('Caption placement')
@@ -1630,10 +1684,20 @@ class GalleryRenderChild extends MarkdownRenderChild {
     input.value = currentValue;
     input.placeholder = placeholder;
 
+    // A pointerdown anywhere else means the coming blur is a click-dismissal;
+    // that click is then swallowed so it can't also activate what it hit.
+    let dismissedByPointer = false;
+    const onDocumentPointerDown = (evt: PointerEvent): void => {
+      if (evt.target !== input) dismissedByPointer = true;
+    };
+    document.addEventListener('pointerdown', onDocumentPointerDown, { capture: true });
+
     let finished = false;
     const finish = (commit: boolean): void => {
       if (finished) return;
       finished = true;
+      document.removeEventListener('pointerdown', onDocumentPointerDown, { capture: true });
+      if (dismissedByPointer) swallowNextClick();
       input.replaceWith(displayEl);
       const next = input.value.trim();
       if (commit && next !== currentValue.trim()) onCommit(next);
@@ -1918,30 +1982,6 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         }
       },
       {
-        name: 'Minimum thumbnail size',
-        desc: 'Smallest width, in pixels, a thumbnail can shrink to before the grid wraps to fewer columns.',
-        control: {
-          type: 'slider',
-          key: 'minThumbnailSize',
-          defaultValue: DEFAULT_SETTINGS.minThumbnailSize,
-          min: 80,
-          max: 400,
-          step: 5
-        }
-      },
-      {
-        name: 'Gap between images',
-        desc: 'Spacing, in pixels, between thumbnails in the grid.',
-        control: {
-          type: 'slider',
-          key: 'gapSize',
-          defaultValue: DEFAULT_SETTINGS.gapSize,
-          min: 0,
-          max: 32,
-          step: 2
-        }
-      },
-      {
         name: 'Rounded corners',
         desc: 'Corner roundness of each thumbnail, in pixels. Zero keeps the photos square-cornered.',
         control: {
@@ -2022,8 +2062,6 @@ class SimpleGallerySettingTab extends PluginSettingTab {
   getControlValue(key: string): unknown {
     switch (key) {
       case 'layout': return this.plugin.settings.layout;
-      case 'minThumbnailSize': return this.plugin.settings.minThumbnailSize;
-      case 'gapSize': return this.plugin.settings.gapSize;
       case 'showCaptions': return this.plugin.settings.showCaptions;
       case 'captionFont': return this.plugin.settings.captionFont;
       case 'captionLines': return this.plugin.settings.captionLines;
@@ -2038,12 +2076,6 @@ class SimpleGallerySettingTab extends PluginSettingTab {
     switch (key) {
       case 'layout':
         if (value === 'masonry' || value === 'grid') this.plugin.settings.layout = value;
-        break;
-      case 'minThumbnailSize':
-        if (typeof value === 'number') this.plugin.settings.minThumbnailSize = value;
-        break;
-      case 'gapSize':
-        if (typeof value === 'number') this.plugin.settings.gapSize = value;
         break;
       case 'showCaptions':
         if (typeof value === 'boolean') this.plugin.settings.showCaptions = value;
@@ -2087,28 +2119,6 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.layout)
         .onChange(async (value) => {
           this.plugin.settings.layout = value === 'grid' ? 'grid' : 'masonry';
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Minimum thumbnail size')
-      .setDesc('Smallest width, in pixels, a thumbnail can shrink to before the grid wraps to fewer columns.')
-      .addSlider((slider) => slider
-        .setLimits(80, 400, 5)
-        .setValue(this.plugin.settings.minThumbnailSize)
-        .onChange(async (value) => {
-          this.plugin.settings.minThumbnailSize = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Gap between images')
-      .setDesc('Spacing, in pixels, between thumbnails in the grid.')
-      .addSlider((slider) => slider
-        .setLimits(0, 32, 2)
-        .setValue(this.plugin.settings.gapSize)
-        .onChange(async (value) => {
-          this.plugin.settings.gapSize = value;
           await this.plugin.saveSettings();
         }));
 

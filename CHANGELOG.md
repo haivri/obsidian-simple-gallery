@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 - 2026-09-02
+
+- The click that dismisses an open caption or section-title editor now does only that: it can no longer fall through to whatever it landed on and, say, open that photo in a fullscreen/lightbox plugin.
+- Caption alignment is now the familiar four alignment icon buttons in both the gallery settings and per-photo caption settings modals (in the per-photo modal, clicking the active button again returns to the gallery setting).
+- Decluttered the global settings tab: Minimum thumbnail size and Gap between images are no longer global settings — the built-in defaults suit most galleries, and any gallery that needs different values sets them for itself via the gear modal or `min-size:`/`gap:` lines. Previously saved global values continue to apply.
+- The hover zoom-and-shadow effect is gone by default: its scale transform reversing on a quick hover-and-away visibly re-centered the photo (most noticeable in Grid layout), and it read as app chrome on what should be quiet photographs. A snippet setting `--simple-gallery-hover-scale: 1.03` brings the zoom back.
+
 ## 1.2.0 - 2026-09-02
 
 - New **Caption placement** setting (global, and per-gallery via `caption-placement:` or the gear modal): **Below the photo** (default) keeps each caption in its own row; **Over the photo** lays it on the photo's bottom edge in a translucent strip — denser, and adding or editing a caption never shifts the gallery's layout. Caption editing follows the placement, so an overlaid caption edits in an overlaid input.

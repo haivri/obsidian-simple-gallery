@@ -274,9 +274,6 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 - **Layout** — **Masonry** (default) sizes each thumbnail from its own photo's
   proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles
   instead. Switching this instantly updates any gallery already open.
-- **Minimum thumbnail size** — Smallest width a thumbnail can shrink to before the grid
-  wraps to fewer columns. Adjusts in fine 5-pixel increments.
-- **Gap between images** — Spacing between thumbnails.
 - **Rounded corners** — Corner roundness of each thumbnail, in pixels. 0 (default) keeps
   photos square-cornered, the way a print or portfolio usually presents them; raise it for
   a softer, card-like look.
@@ -292,6 +289,10 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   lines if needed. Single line truncates a long caption with an ellipsis instead.
 - **Caption alignment** — Center (default), left, right, or fully justified caption text.
 
+Thumbnail size and gap are deliberately not global settings — the built-in defaults
+(160px minimum, 8px gap) suit most galleries, and any gallery that needs different
+values sets them for itself via the gear modal or `min-size:`/`gap:` lines.
+
 Finer visual control (hover effect, colors) is available through CSS
 custom properties rather than additional settings. See
 [Customizing the appearance](#customizing-the-appearance) below.
@@ -302,8 +303,7 @@ Themes and CSS snippets can override the plugin's public variables. For example:
 
 ```css
 body {
-  --simple-gallery-radius: 4px;
-  --simple-gallery-hover-scale: 1;
+  --simple-gallery-hover-scale: 1.03; /* bring back the hover zoom (off by default) */
   --simple-gallery-background: var(--background-primary);
   --simple-gallery-caption-color: var(--text-faint);
 }

@@ -15,7 +15,13 @@ body {
   --simple-gallery-radius: 0px;
   --simple-gallery-row-unit: 8px;
   --simple-gallery-aspect-ratio: 1;
-  --simple-gallery-hover-scale: 1.03;
+  /*
+   * 1 = no hover zoom (the default: a scale transform reversing mid-
+   * transition on a quick hover-and-away visibly re-centers the photo,
+   * and photos presenting themselves shouldn't need an effect anyway).
+   * A snippet can set e.g. 1.03 to bring the zoom back.
+   */
+  --simple-gallery-hover-scale: 1;
   --simple-gallery-background: var(--background-secondary);
   --simple-gallery-caption-color: var(--text-muted);
   --simple-gallery-caption-font: inherit;
@@ -72,6 +78,13 @@ body {
 
 .simple-gallery-destructive-button {
   background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+/* The four alignment icon buttons in the settings modals. */
+.simple-gallery-align-active,
+.simple-gallery-align-active:hover {
+  background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
@@ -177,12 +190,11 @@ body {
   overflow: hidden;
   border-radius: var(--simple-gallery-radius);
   background: var(--simple-gallery-background);
-  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+  transition: transform 120ms ease-out;
 }
 
 .simple-gallery-item:hover {
   transform: scale(var(--simple-gallery-hover-scale));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 .simple-gallery-photo {
