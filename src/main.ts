@@ -1812,11 +1812,25 @@ export default class SimpleGalleryPlugin extends Plugin {
     if (closingLine < cursorLine) return;
 
     if (closingLine < editor.lastLine()) {
-      editor.setCursor({ line: closingLine + 1, ch: 0 });
+      this.setCursorPreservingScroll(editor, { line: closingLine + 1, ch: 0 });
     } else if (openingLine > 0) {
       const previousLine = openingLine - 1;
-      editor.setCursor({ line: previousLine, ch: editor.getLine(previousLine).length });
+      this.setCursorPreservingScroll(editor, { line: previousLine, ch: editor.getLine(previousLine).length });
     }
+  }
+
+  /**
+   * The cursor release exists only so the gallery renders instead of showing
+   * its source; the user must not experience it as a navigation. setCursor
+   * scrolls the cursor into view (mobile especially, where file-open also
+   * re-fires on app resume), so the scroll position is pinned across the
+   * move — including the mobile editor's deferred scroll frame.
+   */
+  private setCursorPreservingScroll(editor: Editor, pos: EditorPosition): void {
+    const scrollInfo = editor.getScrollInfo();
+    editor.setCursor(pos);
+    editor.scrollTo(scrollInfo.left, scrollInfo.top);
+    window.requestAnimationFrame(() => editor.scrollTo(scrollInfo.left, scrollInfo.top));
   }
 
   /**

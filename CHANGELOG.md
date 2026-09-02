@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The Live Preview cursor release that keeps a gallery rendered on note open no longer scrolls the page to just after the gallery block (most visible on mobile, where file-open re-fires on app resume): the editor's scroll position is now pinned across the cursor move.
+
 All notable changes to Simple Gallery will be documented here.
 
 ## 1.0.3 - 2026-07-24
