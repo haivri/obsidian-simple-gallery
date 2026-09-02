@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 - 2026-09-02
+
+- Pressing Enter in a caption or section-title editor now simply commits it: keystrokes no longer also bubble to the Live Preview editor underneath, which had been reacting to the same Enter with its own cursor and selection behavior.
+
 ## 1.5.0 - 2026-09-02
 
 - **Justified is now the default layout** — equal-height photo rows at exact proportions is how photography presents itself. Masonry and Grid remain a dropdown away, globally or per gallery.

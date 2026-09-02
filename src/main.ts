@@ -1832,6 +1832,11 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
     input.addEventListener('blur', () => finish(true));
     input.addEventListener('keydown', (evt: KeyboardEvent) => {
+      // Keystrokes in the editor belong to the editor. Without this they
+      // also bubble to the Live Preview CodeMirror underneath, which reacts
+      // to Enter (and friends) with its own cursor/selection behavior on
+      // top of the commit.
+      evt.stopPropagation();
       if (evt.key === 'Enter') {
         evt.preventDefault();
         input.blur();
