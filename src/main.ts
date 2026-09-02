@@ -1811,19 +1811,29 @@ class GalleryRenderChild extends MarkdownRenderChild {
     input.value = currentValue;
     input.placeholder = placeholder;
 
-    // A pointerdown anywhere else means the coming blur is a click-dismissal;
-    // that click is then swallowed so it can't also activate what it hit.
+    // A press anywhere else means the coming blur is a click-dismissal; the
+    // press itself is stopped from propagating (CodeMirror places its cursor
+    // on mousedown, and a cursor inside the gallery's fenced block flips the
+    // rendered gallery into its source), and the following click is then
+    // swallowed so it can't activate what it hit either. Default actions
+    // aren't prevented — the focus change is what blurs the input and
+    // commits. Both pointerdown and mousedown are intercepted; they're
+    // separate events and CodeMirror listens for the latter.
     let dismissedByPointer = false;
-    const onDocumentPointerDown = (evt: PointerEvent): void => {
-      if (evt.target !== input) dismissedByPointer = true;
+    const interceptDismissalPress = (evt: Event): void => {
+      if (evt.target === input) return;
+      dismissedByPointer = true;
+      evt.stopPropagation();
     };
-    document.addEventListener('pointerdown', onDocumentPointerDown, { capture: true });
+    document.addEventListener('pointerdown', interceptDismissalPress, { capture: true });
+    document.addEventListener('mousedown', interceptDismissalPress, { capture: true });
 
     let finished = false;
     const finish = (commit: boolean): void => {
       if (finished) return;
       finished = true;
-      document.removeEventListener('pointerdown', onDocumentPointerDown, { capture: true });
+      document.removeEventListener('pointerdown', interceptDismissalPress, { capture: true });
+      document.removeEventListener('mousedown', interceptDismissalPress, { capture: true });
       if (dismissedByPointer) swallowNextClick();
       input.replaceWith(displayEl);
       const next = input.value.trim();

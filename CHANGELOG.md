@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2 - 2026-09-02
+
+- Clicking away from an open caption/title editor no longer flips the gallery into its source code block. The dismissal press itself now stops before reaching the underlying Live Preview editor — CodeMirror places its cursor on mousedown, and a cursor landing inside the gallery's fenced block is what switched it to source.
+
 ## 1.5.1 - 2026-09-02
 
 - Pressing Enter in a caption or section-title editor now simply commits it: keystrokes no longer also bubble to the Live Preview editor underneath, which had been reacting to the same Enter with its own cursor and selection behavior.
