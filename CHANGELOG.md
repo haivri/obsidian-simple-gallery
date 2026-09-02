@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 - 2026-09-02
+
+- Settings modals now save on close: choosing a setting is the action, and closing the gallery or photo settings modal any way — clicking outside, Escape, or Save — applies what's selected. Only the explicit **Cancel** button reverts. Previously everything but the Save button silently reverted the live preview, which read as selections (caption alignment especially) not persisting.
+- **Over the photo is now the default caption placement** — dense, and captioning never moves the grid. Below-the-photo remains one dropdown away, globally or per gallery.
+
 ## 1.5.2 - 2026-09-02
 
 - Clicking away from an open caption/title editor no longer flips the gallery into its source code block. The dismissal press itself now stops before reaching the underlying Live Preview editor — CodeMirror places its cursor on mousedown, and a cursor landing inside the gallery's fenced block is what switched it to source.

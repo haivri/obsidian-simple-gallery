@@ -291,9 +291,9 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   **Fullscreen only** (a photographer's favorite: the grid stays clean and the caption
   appears when a photo is opened in a fullscreen viewer), or **Hidden** — all without
   removing captions from the source.
-- **Caption placement** — **Below the photo** (default) gives each caption its own row.
-  **Over the photo** lays the caption on the photo's bottom edge in a translucent strip —
-  denser, and adding or editing a caption never shifts the gallery's layout.
+- **Caption placement** — **Over the photo** (default) lays the caption on the photo's
+  bottom edge in a translucent strip — dense, and adding or editing a caption never shifts
+  the gallery's layout. **Below the photo** gives each caption its own row instead.
 - **Caption font** — Default uses the normal text font. Typewriter uses your configured
   monospace font instead.
 - **Caption length** — Full (default) shows the whole caption, wrapping onto multiple

@@ -107,7 +107,9 @@ const DEFAULT_SETTINGS: SimpleGallerySettings = {
   captionFont: 'default',
   captionLines: 'full',
   captionAlign: 'center',
-  captionPlacement: 'below',
+  // Overlaid captions occupy no layout row, so captioning never moves the
+  // grid — and the gallery stays dense, photos edge to edge.
+  captionPlacement: 'overlay',
   // Square by default: rounded thumbnails read as an app choice, not the
   // photographer's, so any rounding is deliberately opt-in.
   cornerRadius: 0
@@ -859,6 +861,7 @@ class PhotoCaptionSettingsModal extends Modal {
   private captionAlign?: CaptionAlign;
   private captionVisibility?: CaptionVisibility;
   private saved = false;
+  private cancelled = false;
 
   constructor(
     app: App,
@@ -946,11 +949,21 @@ class PhotoCaptionSettingsModal extends Modal {
         .onClick(() => this.resetToGallery()))
       .addButton((button) => button
         .setButtonText('Cancel')
-        .onClick(() => this.close()));
+        .onClick(() => {
+          this.cancelled = true;
+          this.close();
+        }));
   }
 
+  /**
+   * Choosing a setting is the action: closing the modal any way except the
+   * explicit Cancel button saves what's selected. Anything else quietly
+   * reverts the live preview the user has been watching, which reads as
+   * "my selection didn't persist".
+   */
   onClose(): void {
-    if (!this.saved) this.onCancel();
+    if (this.cancelled) this.onCancel();
+    else if (!this.saved) this.onSave(this.values());
     this.contentEl.empty();
   }
 
@@ -1012,6 +1025,7 @@ class GallerySettingsModal extends Modal {
   private captionPlacement: CaptionPlacement;
   private cornerRadius: number;
   private saved = false;
+  private cancelled = false;
 
   constructor(
     app: App,
@@ -1146,20 +1160,7 @@ class GallerySettingsModal extends Modal {
         .setCta()
         .onClick(() => {
           this.saved = true;
-          this.onSave({
-            layout: this.layout === this.defaults.layout ? undefined : this.layout,
-            minThumbnailSize:
-              this.minThumbnailSize === this.defaults.minThumbnailSize ? undefined : this.minThumbnailSize,
-            gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
-            captionVisibility:
-              this.captionVisibility === this.defaults.captionVisibility ? undefined : this.captionVisibility,
-            captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
-            captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
-            captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign,
-            captionPlacement:
-              this.captionPlacement === this.defaults.captionPlacement ? undefined : this.captionPlacement,
-            cornerRadius: this.cornerRadius === this.defaults.cornerRadius ? undefined : this.cornerRadius
-          });
+          this.onSave(this.overridesFromControls());
           this.close();
         }))
       .addButton((button) => button
@@ -1167,7 +1168,10 @@ class GallerySettingsModal extends Modal {
         .onClick(() => this.resetToDefaults()))
       .addButton((button) => button
         .setButtonText('Cancel')
-        .onClick(() => this.close()));
+        .onClick(() => {
+          this.cancelled = true;
+          this.close();
+        }));
 
     new Setting(contentEl)
       .setName('Remove gallery')
@@ -1176,6 +1180,9 @@ class GallerySettingsModal extends Modal {
         button
           .setButtonText('Remove gallery…')
           .onClick(() => {
+            // Skip apply-on-close: a save's re-render would detach the
+            // element the removal needs for its own line-range lookup.
+            this.cancelled = true;
             this.close();
             this.onRemove();
           });
@@ -1183,8 +1190,33 @@ class GallerySettingsModal extends Modal {
       });
   }
 
+  /** Overrides only where a control differs from the current global default. */
+  private overridesFromControls(): GalleryOverrides {
+    return {
+      layout: this.layout === this.defaults.layout ? undefined : this.layout,
+      minThumbnailSize:
+        this.minThumbnailSize === this.defaults.minThumbnailSize ? undefined : this.minThumbnailSize,
+      gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
+      captionVisibility:
+        this.captionVisibility === this.defaults.captionVisibility ? undefined : this.captionVisibility,
+      captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
+      captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
+      captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign,
+      captionPlacement:
+        this.captionPlacement === this.defaults.captionPlacement ? undefined : this.captionPlacement,
+      cornerRadius: this.cornerRadius === this.defaults.cornerRadius ? undefined : this.cornerRadius
+    };
+  }
+
+  /**
+   * Choosing a setting is the action: closing the modal any way except the
+   * explicit Cancel button saves what's selected. Anything else quietly
+   * reverts the live preview the user has been watching, which reads as
+   * "my selection didn't persist".
+   */
   onClose(): void {
-    if (!this.saved) this.onCancel();
+    if (this.cancelled) this.onCancel();
+    else if (!this.saved) this.onSave(this.overridesFromControls());
     this.contentEl.empty();
   }
 
@@ -2169,8 +2201,8 @@ const SHOW_CAPTIONS_DESC =
   'and reveals the caption when a photo is opened. Hidden turns them off without removing ' +
   'them from the source.';
 const CAPTION_PLACEMENT_DESC =
-  'Below keeps each caption in its own row beneath the photo. Over lays the caption on the ' +
-  'photo’s bottom edge — denser, and adding a caption never changes the gallery’s layout.';
+  'Over lays the caption on the photo’s bottom edge — dense, and adding a caption never ' +
+  'changes the gallery’s layout. Below gives each caption its own row beneath the photo.';
 
 class SimpleGallerySettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: SimpleGalleryPlugin) {
