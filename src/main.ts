@@ -20,7 +20,11 @@ import {
 // Settings
 // ---------------------------------------------------------------------------
 
-type GalleryLayout = 'masonry' | 'grid';
+type GalleryLayout = 'masonry' | 'grid' | 'justified';
+
+function isGalleryLayout(value: string): value is GalleryLayout {
+  return value === 'masonry' || value === 'grid' || value === 'justified';
+}
 type CaptionFont = 'default' | 'monospace';
 type CaptionLines = 'full' | 'single';
 type CaptionAlign = 'left' | 'center' | 'right' | 'justify';
@@ -95,6 +99,8 @@ export interface GalleryItem {
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
+  /** Per-photo caption visibility; undefined inherits the gallery/global setting. */
+  showCaption?: boolean;
 }
 
 export interface GallerySection {
@@ -124,7 +130,7 @@ const SECTION_LINE = /^section:\s*(.*)$/i;
 const CAPTION_LINE = /^caption:\s*(.*)$/i;
 const FEATURED_LINE = /^featured:\s*true\s*$/i;
 const NOTE_LINE = /^note:\s*(.*)$/i;
-const LAYOUT_LINE = /^layout:\s*(masonry|grid)\s*$/i;
+const LAYOUT_LINE = /^layout:\s*(masonry|grid|justified)\s*$/i;
 const MIN_SIZE_LINE = /^min-size:\s*(\d+)\s*$/i;
 const GAP_LINE = /^gap:\s*(\d+)\s*$/i;
 const CAPTION_FONT_LINE = /^caption-font:\s*(default|monospace)\s*$/i;
@@ -280,6 +286,12 @@ export function parseGalleryBlock(source: string): GalleryBlock {
         continue;
       }
 
+      const captionsMatch = CAPTIONS_LINE.exec(trimmed);
+      if (captionsMatch && item?.showCaption === undefined) {
+        item.showCaption = captionsMatch[1].toLowerCase() === 'true';
+        continue;
+      }
+
       continue;
     }
 
@@ -338,6 +350,7 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
       if (item.captionFont !== undefined) body.push(`  caption-font: ${item.captionFont}`);
       if (item.captionLines !== undefined) body.push(`  caption-lines: ${item.captionLines}`);
       if (item.captionAlign !== undefined) body.push(`  caption-align: ${item.captionAlign}`);
+      if (item.showCaption !== undefined) body.push(`  captions: ${item.showCaption}`);
     }
   }
 
@@ -376,6 +389,7 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
   el.removeClass(
     'simple-gallery-force-grid',
     'simple-gallery-force-masonry',
+    'simple-gallery-force-justified',
     'simple-gallery-force-hide-captions',
     'simple-gallery-force-show-captions',
     'simple-gallery-force-caption-font-mono',
@@ -392,6 +406,7 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
 
   if (block.layout === 'grid') el.addClass('simple-gallery-force-grid');
   else if (block.layout === 'masonry') el.addClass('simple-gallery-force-masonry');
+  else if (block.layout === 'justified') el.addClass('simple-gallery-force-justified');
 
   if (block.showCaptions === false) el.addClass('simple-gallery-force-hide-captions');
   else if (block.showCaptions === true) el.addClass('simple-gallery-force-show-captions');
@@ -426,7 +441,9 @@ function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
     'simple-gallery-item-caption-font-mono',
     'simple-gallery-item-caption-font-default',
     'simple-gallery-item-caption-lines-single',
-    'simple-gallery-item-caption-lines-full'
+    'simple-gallery-item-caption-lines-full',
+    'simple-gallery-item-captions-hide',
+    'simple-gallery-item-captions-show'
   );
   el.style.removeProperty('--simple-gallery-caption-align');
 
@@ -435,6 +452,9 @@ function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
 
   if (item.captionLines === 'single') el.addClass('simple-gallery-item-caption-lines-single');
   else if (item.captionLines === 'full') el.addClass('simple-gallery-item-caption-lines-full');
+
+  if (item.showCaption === false) el.addClass('simple-gallery-item-captions-hide');
+  else if (item.showCaption === true) el.addClass('simple-gallery-item-captions-show');
 
   if (item.captionAlign !== undefined) {
     el.style.setProperty('--simple-gallery-caption-align', item.captionAlign);
@@ -518,6 +538,7 @@ function itemSpanKey(item: GalleryItem, src: string, placement: CaptionPlacement
     item.captionFont ?? '',
     item.captionLines ?? '',
     item.captionAlign ?? '',
+    item.showCaption === undefined ? '' : String(item.showCaption),
     placement
   ].join('|');
 }
@@ -731,6 +752,7 @@ interface PhotoCaptionOverrides {
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
+  showCaption?: boolean;
 }
 
 const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; icon: string; label: string }[] = [
@@ -777,6 +799,7 @@ class PhotoCaptionSettingsModal extends Modal {
   private captionFont?: CaptionFont;
   private captionLines?: CaptionLines;
   private captionAlign?: CaptionAlign;
+  private showCaption?: boolean;
   private saved = false;
 
   constructor(
@@ -790,6 +813,7 @@ class PhotoCaptionSettingsModal extends Modal {
     this.captionFont = item.captionFont;
     this.captionLines = item.captionLines;
     this.captionAlign = item.captionAlign;
+    this.showCaption = item.showCaption;
   }
 
   onOpen(): void {
@@ -800,6 +824,19 @@ class PhotoCaptionSettingsModal extends Modal {
       cls: 'setting-item-description',
       text: 'Only applies to this photo. Inherited options follow this gallery’s current appearance.'
     });
+
+    new Setting(contentEl)
+      .setName('Show caption')
+      .setDesc('Hidden captions also stay hidden in a fullscreen viewer.')
+      .addDropdown((dropdown) => dropdown
+        .addOption('inherit', 'Use gallery setting')
+        .addOption('show', 'Show')
+        .addOption('hide', 'Hide')
+        .setValue(this.showCaption === undefined ? 'inherit' : this.showCaption ? 'show' : 'hide')
+        .onChange((value) => {
+          this.showCaption = value === 'show' ? true : value === 'hide' ? false : undefined;
+          this.preview();
+        }));
 
     new Setting(contentEl)
       .setName('Caption font')
@@ -863,7 +900,8 @@ class PhotoCaptionSettingsModal extends Modal {
     return {
       captionFont: this.captionFont,
       captionLines: this.captionLines,
-      captionAlign: this.captionAlign
+      captionAlign: this.captionAlign,
+      showCaption: this.showCaption
     };
   }
 
@@ -875,6 +913,7 @@ class PhotoCaptionSettingsModal extends Modal {
     this.captionFont = undefined;
     this.captionLines = undefined;
     this.captionAlign = undefined;
+    this.showCaption = undefined;
     this.onOpen();
     this.preview();
   }
@@ -951,9 +990,10 @@ class GallerySettingsModal extends Modal {
       .addDropdown((dropdown) => dropdown
         .addOption('masonry', 'Masonry (artistic)')
         .addOption('grid', 'Grid (uniform)')
+        .addOption('justified', 'Justified (photo rows)')
         .setValue(this.layout)
         .onChange((value) => {
-          this.layout = value === 'grid' ? 'grid' : 'masonry';
+          this.layout = isGalleryLayout(value) ? value : 'masonry';
           this.preview();
         }));
 
@@ -1382,6 +1422,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     item.captionFont = overrides.captionFont;
     item.captionLines = overrides.captionLines;
     item.captionAlign = overrides.captionAlign;
+    item.showCaption = overrides.showCaption;
     await this.writeBlockToFile();
   }
 
@@ -1737,6 +1778,15 @@ class GalleryRenderChild extends MarkdownRenderChild {
    */
   private recomputeGrid(grid: HTMLElement): void {
     const styles = getComputedStyle(grid);
+
+    // The Justified layout renders the grid as a flex row-wrap (the CSS is
+    // the source of truth on which layout is in effect), and its sizing is
+    // row packing rather than Masonry row-spans.
+    if (styles.display === 'flex') {
+      this.recomputeJustified(grid, styles);
+      return;
+    }
+
     const rowUnit = parseFloat(styles.getPropertyValue('--simple-gallery-row-unit')) || 8;
     const gap = parseFloat(styles.getPropertyValue('--simple-gallery-gap')) || 0;
 
@@ -1756,6 +1806,52 @@ class GalleryRenderChild extends MarkdownRenderChild {
       item.style.setProperty('--simple-gallery-row-span', String(span));
       if (item.dataset.spanKey) this.plugin.rowSpanCache.set(item.dataset.spanKey, span);
     });
+  }
+
+  /**
+   * Justified rows, the classic photography-portfolio layout: photos keep
+   * their exact proportions (never cropped) and pack into rows of equal
+   * height. Greedy packing at a target row height (the min-size setting),
+   * then each full row is rescaled so its widths sum to the container
+   * exactly; the trailing partial row keeps the target height instead of
+   * stretching a few photos across the whole width.
+   */
+  private recomputeJustified(grid: HTMLElement, styles: CSSStyleDeclaration): void {
+    const gap = parseFloat(styles.getPropertyValue('--simple-gallery-gap')) || 0;
+    const targetHeight = parseFloat(styles.getPropertyValue('--simple-gallery-min-size')) || 160;
+    const width = grid.clientWidth;
+    if (width <= 0) return;
+
+    const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
+    const ratios = items.map((item) => {
+      const img = item.querySelector<HTMLImageElement>('img.simple-gallery-img');
+      if (img) {
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) return img.naturalWidth / img.naturalHeight;
+        const reserved = parseFloat(img.style.aspectRatio);
+        if (reserved > 0) return reserved;
+      }
+      return 1; // Broken/not-yet-measured items pack as squares until known.
+    });
+
+    let start = 0;
+    while (start < items.length) {
+      let end = start;
+      let ratioSum = 0;
+      while (end < items.length) {
+        ratioSum += ratios[end];
+        end++;
+        if (ratioSum * targetHeight + gap * (end - start - 1) >= width) break;
+      }
+      const gaps = gap * (end - start - 1);
+      const filled = ratioSum * targetHeight + gaps >= width;
+      // The 1px slack keeps float rounding from ever overflowing the row,
+      // which would wrap its last photo and stair-step everything below.
+      const rowHeight = filled ? (width - gaps - 1) / ratioSum : targetHeight;
+      for (let i = start; i < end; i++) {
+        items[i].style.setProperty('--simple-gallery-justified-width', `${ratios[i] * rowHeight}px`);
+      }
+      start = end;
+    }
   }
 }
 
@@ -1851,6 +1947,7 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.classList.remove(
       'simple-gallery-hide-captions',
       'simple-gallery-layout-grid',
+      'simple-gallery-layout-justified',
       'simple-gallery-caption-font-mono',
       'simple-gallery-caption-lines-single',
       'simple-gallery-caption-overlay'
@@ -1942,6 +2039,7 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.style.setProperty('--simple-gallery-radius', `${this.settings.cornerRadius}px`);
     document.body.classList.toggle('simple-gallery-hide-captions', !this.settings.showCaptions);
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
+    document.body.classList.toggle('simple-gallery-layout-justified', this.settings.layout === 'justified');
     document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
     document.body.classList.toggle('simple-gallery-caption-lines-single', this.settings.captionLines === 'single');
     document.body.classList.toggle('simple-gallery-caption-overlay', this.settings.captionPlacement === 'overlay');
@@ -1952,7 +2050,8 @@ export default class SimpleGalleryPlugin extends Plugin {
 
 const LAYOUT_DESC =
   'Masonry sizes each thumbnail by its own photo’s proportions for an artistic, ' +
-  'portfolio-style look. Grid uses uniform tiles for a clean, rigid look.';
+  'portfolio-style look. Grid uses uniform tiles for a clean, rigid look. Justified ' +
+  'packs photos into equal-height rows at their exact proportions, never cropping.';
 const SHOW_CAPTIONS_DESC =
   'Display captions under images that have one. Turn off for a clean, caption-free grid ' +
   '— useful for print or export — without removing captions from the source.';
@@ -1977,7 +2076,8 @@ class SimpleGallerySettingTab extends PluginSettingTab {
           defaultValue: DEFAULT_SETTINGS.layout,
           options: {
             masonry: 'Masonry (artistic)',
-            grid: 'Grid (uniform)'
+            grid: 'Grid (uniform)',
+            justified: 'Justified (photo rows)'
           }
         }
       },
@@ -2075,7 +2175,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
   async setControlValue(key: string, value: unknown): Promise<void> {
     switch (key) {
       case 'layout':
-        if (value === 'masonry' || value === 'grid') this.plugin.settings.layout = value;
+        if (typeof value === 'string' && isGalleryLayout(value)) this.plugin.settings.layout = value;
         break;
       case 'showCaptions':
         if (typeof value === 'boolean') this.plugin.settings.showCaptions = value;
@@ -2116,9 +2216,10 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => dropdown
         .addOption('masonry', 'Masonry (artistic)')
         .addOption('grid', 'Grid (uniform)')
+        .addOption('justified', 'Justified (photo rows)')
         .setValue(this.plugin.settings.layout)
         .onChange(async (value) => {
-          this.plugin.settings.layout = value === 'grid' ? 'grid' : 'masonry';
+          this.plugin.settings.layout = isGalleryLayout(value) ? value : 'masonry';
           await this.plugin.saveSettings();
         }));
 

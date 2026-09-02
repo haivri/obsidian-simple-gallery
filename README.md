@@ -57,8 +57,10 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
   none of them.
 - Default **Masonry** layout sizes each thumbnail from its own photo's natural
   proportions, for an artistic, portfolio-style look. An optional **Grid** layout gives
-  clean, uniform tiles instead. Every setting — layout, thumbnail size, gap, captions —
-  can also be overridden for a single gallery, right in its code block.
+  clean, uniform tiles; **Justified** packs photos into equal-height rows at their exact
+  proportions, never cropping — the classic photography-portfolio presentation. Every
+  setting — layout, thumbnail size, gap, captions — can also be overridden for a single
+  gallery, right in its code block.
 - Broken or unresolved image references degrade gracefully to an inline placeholder.
 - A documented set of CSS custom properties for deeper visual customization via snippets.
 - Works without external services on desktop and mobile.
@@ -207,7 +209,9 @@ image — the rest of the settings, and every other gallery in the vault, are un
     - ![[brussels-2.jpg]]
     ```
 
-- **`layout: masonry` / `layout: grid`** — Overrides the Layout setting for this gallery only.
+- **`layout: masonry` / `layout: grid` / `layout: justified`** — Overrides the Layout
+  setting for this gallery only. (`featured:` sizing applies in Masonry and Grid; Justified
+  rows always keep every photo at its natural proportions.)
 - **`min-size: <pixels>`** — Overrides Minimum thumbnail size for this gallery only.
 - **`gap: <pixels>`** — Overrides Gap between images for this gallery only.
 - **`captions: true` / `captions: false`** — Overrides Show captions for this gallery only.
@@ -229,8 +233,10 @@ other stray text.
 
 ### Per-photo caption overrides
 
-The same three caption appearance fields can be indented beneath one image to override
-only that photo. The photo menu's **Caption settings…** writes these for you:
+The same three caption appearance fields — plus a per-photo `captions: true`/`captions:
+false` visibility override — can be indented beneath one image to affect only that photo.
+A caption hidden this way (or by the gallery/global Show captions setting) also stays
+hidden in a fullscreen viewer. The photo menu's **Caption settings…** writes these for you:
 
     ```simple-gallery
     - ![[brussels-1.jpg]]
@@ -272,8 +278,10 @@ These are the defaults for every gallery in the vault. Any single gallery can ov
 any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 
 - **Layout** — **Masonry** (default) sizes each thumbnail from its own photo's
-  proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles
-  instead. Switching this instantly updates any gallery already open.
+  proportions, for an artistic, portfolio-style look. **Grid** uses uniform, cropped tiles.
+  **Justified** packs photos into equal-height rows at their exact proportions, never
+  cropping — the classic photography-portfolio presentation, at its best with captions
+  hidden or placed over the photo. Switching this instantly updates any gallery already open.
 - **Rounded corners** — Corner roundness of each thumbnail, in pixels. 0 (default) keeps
   photos square-cornered, the way a print or portfolio usually presents them; raise it for
   a softer, card-like look.

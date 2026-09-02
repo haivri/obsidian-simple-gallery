@@ -76,8 +76,18 @@ body {
   color: var(--text-normal);
 }
 
-.simple-gallery-destructive-button {
+/*
+ * Unmistakably red: this is the "delete the gallery block" action. The
+ * button.-prefixed selectors match mod-cta's specificity so the accent
+ * background can't win over the destructive red.
+ */
+button.simple-gallery-destructive-button {
   background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+button.simple-gallery-destructive-button:hover {
+  background: var(--background-modifier-error-hover, var(--background-modifier-error));
   color: var(--text-on-accent);
 }
 
@@ -386,6 +396,26 @@ body.simple-gallery-caption-overlay .simple-gallery-img {
   border-radius: var(--simple-gallery-radius);
 }
 
+/* --- Justified: equal-height photo rows, never cropped (opt-in via settings) --- */
+
+/*
+ * The grid becomes a flex row-wrap; recomputeJustified() packs photos into
+ * rows and writes each item's exact width as --simple-gallery-justified-width.
+ * The min-size fallback only shows for the first frame of a never-measured
+ * gallery. JS detects this layout by the computed display, so these rules
+ * are the single source of truth for which galleries are justified.
+ */
+body.simple-gallery-layout-justified .simple-gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+body.simple-gallery-layout-justified .simple-gallery-item {
+  flex: 0 0 auto;
+  width: var(--simple-gallery-justified-width, var(--simple-gallery-min-size));
+}
+
 /* --- Grid: uniform (opt-in via settings) --- */
 
 body.simple-gallery-layout-grid .simple-gallery-grid {
@@ -433,7 +463,19 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
  * already override the inherited value from <body> on their own.
  */
 
+.simple-gallery-root.simple-gallery-force-justified .simple-gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.simple-gallery-root.simple-gallery-force-justified .simple-gallery-item {
+  flex: 0 0 auto;
+  width: var(--simple-gallery-justified-width, var(--simple-gallery-min-size));
+}
+
 .simple-gallery-root.simple-gallery-force-grid .simple-gallery-grid {
+  display: grid;
   grid-auto-rows: auto;
 }
 
@@ -456,6 +498,7 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 }
 
 .simple-gallery-root.simple-gallery-force-masonry .simple-gallery-grid {
+  display: grid;
   grid-auto-rows: var(--simple-gallery-row-unit);
 }
 
@@ -517,6 +560,19 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+/*
+ * Per-photo caption visibility. Placed after the gallery-level force rules
+ * so the equal-specificity hide wins over a gallery's force-show; the show
+ * rule's :not() outranks any hide selector on its own.
+ */
+.simple-gallery-item.simple-gallery-item-captions-hide .simple-gallery-caption {
+  display: none;
+}
+
+.simple-gallery-item.simple-gallery-item-captions-show .simple-gallery-caption:not(.simple-gallery-caption-empty) {
+  display: block;
 }
 
 /* Per-gallery caption-placement overrides, winning over the body rule in both directions. */

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 - 2026-09-02
+
+- New **Justified** layout (global setting, or `layout: justified` per gallery): photos pack into equal-height rows at their exact proportions, never cropped — the classic photography-portfolio presentation. Full rows scale to fill the width exactly; the trailing partial row keeps the target height instead of stretching. It pairs best with captions hidden or placed over the photo, since below-photo captions of different heights make any layout's rows ragged.
+- Per-photo caption visibility: the photo's **Caption settings…** modal gains a **Show caption** control (inherit / show / hide), written as an indented `captions: true`/`captions: false` line. A per-photo show wins over a gallery or global hide, and vice versa.
+- The **Remove gallery** buttons (in the gallery settings modal and its confirmation) are now unambiguously red; previously the confirmation button's call-to-action accent could override the destructive coloring.
+
 ## 1.3.0 - 2026-09-02
 
 - The click that dismisses an open caption or section-title editor now does only that: it can no longer fall through to whatever it landed on and, say, open that photo in a fullscreen/lightbox plugin.
