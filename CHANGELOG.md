@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.4 - 2026-09-02
 
 - The Live Preview cursor release that keeps a gallery rendered on note open no longer scrolls the page to just after the gallery block (most visible on mobile, where file-open re-fires on app resume): the editor's scroll position is now pinned across the cursor move.
 
