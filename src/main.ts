@@ -397,7 +397,7 @@ function applyItemCaptionOverrides(el: HTMLElement, item: GalleryItem): void {
  * before the element has acquired its final editor ancestors, so the
  * absence of `.markdown-source-view` must not be treated as Reading Mode.
  */
-function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
+function renderGalleryBlock(plugin: SimpleGalleryPlugin, block: GalleryBlock, el: HTMLElement, sourcePath: string): void {
   el.addClass('simple-gallery-root', 'simple-gallery-editable');
   const toolbar = el.createDiv({ cls: 'simple-gallery-toolbar' });
   const settingsButton = toolbar.createEl('button', {
@@ -455,13 +455,13 @@ function renderGalleryBlock(app: App, block: GalleryBlock, el: HTMLElement, sour
     const grid = parent.createDiv({ cls: 'simple-gallery-grid' });
     grid.dataset.sectionIndex = String(sectionIndex);
     for (const item of section.items) {
-      renderGalleryItem(app, grid, item, sourcePath);
+      renderGalleryItem(plugin, grid, item, sourcePath);
     }
   });
 }
 
-function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
-  const src = resolveGalleryImageSrc(app, item.linkpath, sourcePath);
+function renderGalleryItem(plugin: SimpleGalleryPlugin, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
+  const src = resolveGalleryImageSrc(plugin.app, item.linkpath, sourcePath);
   if (!src) {
     renderBrokenItem(grid, item);
     return;
@@ -473,8 +473,16 @@ function renderGalleryItem(app: App, grid: HTMLElement, item: GalleryItem, sourc
 
   const photo = figure.createDiv({ cls: 'simple-gallery-photo' });
   const img = photo.createEl('img', { cls: 'simple-gallery-img' });
+  // A Masonry gallery whose height settles only after its images load shifts
+  // the note under the reader every time Reading Mode re-renders it into
+  // view, and scroll anchoring turns that shift into a scroll-back loop. So
+  // the height is reserved before load whenever this image's proportions
+  // were seen earlier this session, and only remote images load lazily —
+  // vault images are local and load while the block is still offscreen.
+  const knownRatio = plugin.imageAspectRatios.get(src);
+  if (knownRatio) img.style.aspectRatio = String(knownRatio);
   img.src = src;
-  img.loading = 'lazy';
+  if (REMOTE_URL.test(item.linkpath)) img.loading = 'lazy';
   img.alt = item.caption?.trim() || basename(item.linkpath);
 
   renderItemControls(photo, item.featured === true);
@@ -1036,8 +1044,13 @@ class GalleryRenderChild extends MarkdownRenderChild {
       grid.querySelectorAll<HTMLElement>('.simple-gallery-caption')
         .forEach((caption) => this.observer?.observe(caption));
       grid.querySelectorAll<HTMLImageElement>('img.simple-gallery-img').forEach((img) => {
-        if (!img.complete) {
-          this.registerDomEvent(img, 'load', () => this.scheduleRecompute(this.grids));
+        if (img.complete) {
+          this.plugin.rememberImageAspectRatio(img);
+        } else {
+          this.registerDomEvent(img, 'load', () => {
+            this.plugin.rememberImageAspectRatio(img);
+            this.scheduleRecompute(this.grids);
+          });
         }
       });
       if (this.isLivePreview) {
@@ -1678,6 +1691,13 @@ class GalleryRenderChild extends MarkdownRenderChild {
     const gap = parseFloat(styles.getPropertyValue('--simple-gallery-gap')) || 0;
 
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item').forEach((item) => {
+      // An image that hasn't loaded and has no reserved aspect-ratio measures
+      // at zero height; committing that span would collapse the item and then
+      // balloon it back on load, jolting the reader's scroll position. Its
+      // current (or fallback) span stands until the load event re-measures.
+      const img = item.querySelector<HTMLImageElement>('img.simple-gallery-img');
+      if (img && !img.complete && !img.style.aspectRatio) return;
+
       // One physical pixel protects against scrollHeight's integer rounding.
       // An expanded featured item gets a full row-unit of safety because its
       // two-column span makes a shortfall particularly visible below it.
@@ -1701,7 +1721,22 @@ export default class SimpleGalleryPlugin extends Plugin {
   settings: SimpleGallerySettings = DEFAULT_SETTINGS;
   /** Every currently-rendered gallery, so a settings change can nudge each one to re-measure. */
   readonly galleryInstances = new Set<GalleryRenderChild>();
+  /**
+   * Natural proportions (width/height) keyed by resolved img src. Reading
+   * Mode unloads offscreen sections and re-renders them as they scroll back
+   * in; reserving each image's height from this cache makes the re-rendered
+   * gallery the right size before a single image loads, so the surrounding
+   * note never shifts under the reader. The resource-path key carries the
+   * file's mtime, so an edited image simply misses and re-measures.
+   */
+  readonly imageAspectRatios = new Map<string, number>();
   private initialRenderTimer: number | null = null;
+
+  rememberImageAspectRatio(img: HTMLImageElement): void {
+    const key = img.getAttribute('src');
+    if (!key || !img.naturalWidth || !img.naturalHeight) return;
+    this.imageAspectRatios.set(key, img.naturalWidth / img.naturalHeight);
+  }
 
   async onload(): Promise<void> {
     const stored = (await this.loadData()) as Partial<SimpleGallerySettings> | null;
@@ -1713,7 +1748,7 @@ export default class SimpleGalleryPlugin extends Plugin {
       'simple-gallery',
       (source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
         const block = parseGalleryBlock(source);
-        renderGalleryBlock(this.app, block, el, ctx.sourcePath);
+        renderGalleryBlock(this, block, el, ctx.sourcePath);
         ctx.addChild(new GalleryRenderChild(el, this.app, ctx, block, this));
       }
     );

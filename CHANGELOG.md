@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5 - 2026-09-02
+
+- Fixed Reading Mode scrolling being repeatedly yanked back when passing a gallery. The gallery's height used to settle in waves after render (fallback size, then a collapse while lazy images were still empty, then ballooning as each image loaded), and Reading Mode's re-rendering of sections scrolled back into view replayed those waves on every approach, so scroll anchoring kept throwing the reader back. Now: an image that hasn't loaded is never measured (its placeholder span stands), vault images load eagerly instead of lazily (only remote URLs stay lazy), and each image's natural proportions are remembered for the session so a re-rendered gallery reserves its exact final height before a single image loads.
+
 ## 1.0.4 - 2026-09-02
 
 - The Live Preview cursor release that keeps a gallery rendered on note open no longer scrolls the page to just after the gallery block (most visible on mobile, where file-open re-fires on app resume): the editor's scroll position is now pinned across the cursor move.
