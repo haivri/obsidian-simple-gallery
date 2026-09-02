@@ -297,7 +297,9 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 - **Caption font** — Default uses the normal text font. Typewriter uses your configured
   monospace font instead.
 - **Caption length** — Full (default) shows the whole caption, wrapping onto multiple
-  lines if needed. Single line truncates a long caption with an ellipsis instead.
+  lines if needed. Single line truncates a long caption with an ellipsis instead. This
+  applies to the gallery view; Fullscreen Image has its own caption length setting, which
+  defaults to showing the full caption even when the gallery truncates it.
 - **Caption alignment** — Center (default), left, right, or fully justified caption text.
 
 Thumbnail size and gap are deliberately not global settings — the built-in defaults

@@ -2281,7 +2281,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       },
       {
         name: 'Caption length',
-        desc: 'Full shows the whole caption, wrapping as needed. Single line truncates a long caption with an ellipsis.',
+        desc: 'Applies to the gallery view; a fullscreen viewer has its own caption length setting. Full shows the whole caption, wrapping as needed. Single line truncates with an ellipsis.',
         control: {
           type: 'dropdown',
           key: 'captionLines',
@@ -2424,7 +2424,7 @@ class SimpleGallerySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Caption length')
-      .setDesc('Full shows the whole caption, wrapping as needed. Single line truncates a long caption with an ellipsis.')
+      .setDesc('Applies to the gallery view; a fullscreen viewer has its own caption length setting. Full shows the whole caption, wrapping as needed. Single line truncates with an ellipsis.')
       .addDropdown((dropdown) => dropdown
         .addOption('full', 'Full')
         .addOption('single', 'Single line')

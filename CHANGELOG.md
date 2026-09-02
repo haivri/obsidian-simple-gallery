@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 - 2026-09-02
+
+- Clarified that **Caption length** governs the gallery view only; the fullscreen viewer's caption length is Fullscreen Image's own setting, defaulting to the full caption even when the gallery truncates to a single line.
+
 ## 1.6.0 - 2026-09-02
 
 - Settings modals now save on close: choosing a setting is the action, and closing the gallery or photo settings modal any way — clicking outside, Escape, or Save — applies what's selected. Only the explicit **Cancel** button reverts. Previously everything but the Save button silently reverted the live preview, which read as selections (caption alignment especially) not persisting.
