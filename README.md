@@ -146,7 +146,7 @@ whole gallery — arrow buttons, a position counter, and the left/right arrow ke
   gallery block. The image file itself stays in the vault untouched. It works on a
   broken-reference placeholder too, which is the easiest way to clear one out.
 - **Gallery settings** — Use the **⚙ Gallery settings** control in the toolbar above the
-  photos to open the same Layout / thumbnail size / gap / captions / caption font / caption
+  photos to open the same Layout / thumbnail size / gap / corners / captions / caption font / caption
   length / caption alignment controls as the main Settings tab, scoped to just this gallery.
   **Reset to defaults** previews the current global defaults and removes this gallery's
   overrides when saved. All changes preview live behind the modal; **Save** writes them to
@@ -217,8 +217,13 @@ image — the rest of the settings, and every other gallery in the vault, are un
   gallery only.
 - **`caption-align: left` / `caption-align: center` / `caption-align: right` /
   `caption-align: justify`** — Overrides Caption alignment for this gallery only.
+- **`caption-placement: below` / `caption-placement: overlay`** — Overrides Caption
+  placement for this gallery only: in its own row beneath the photo, or laid over the
+  photo's bottom edge (denser, and adding a caption never changes the gallery's layout).
+- **`corners: <pixels>`** — Overrides Rounded corners for this gallery only. `corners: 0`
+  keeps thumbnails square.
 
-All seven are optional and independent — use just the ones you need. They only take effect
+All of these are optional and independent — use just the ones you need. They only take effect
 before the first `section:` or image line; anywhere after that, they're ignored like any
 other stray text.
 
@@ -272,16 +277,22 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
 - **Minimum thumbnail size** — Smallest width a thumbnail can shrink to before the grid
   wraps to fewer columns. Adjusts in fine 5-pixel increments.
 - **Gap between images** — Spacing between thumbnails.
+- **Rounded corners** — Corner roundness of each thumbnail, in pixels. 0 (default) keeps
+  photos square-cornered, the way a print or portfolio usually presents them; raise it for
+  a softer, card-like look.
 - **Show captions** — Display captions under images that have one. Turn this off for a
   clean, caption-free grid — useful for print or export — without removing captions from
   the source.
+- **Caption placement** — **Below the photo** (default) gives each caption its own row.
+  **Over the photo** lays the caption on the photo's bottom edge in a translucent strip —
+  denser, and adding or editing a caption never shifts the gallery's layout.
 - **Caption font** — Default uses the normal text font. Typewriter uses your configured
   monospace font instead.
 - **Caption length** — Full (default) shows the whole caption, wrapping onto multiple
   lines if needed. Single line truncates a long caption with an ellipsis instead.
 - **Caption alignment** — Center (default), left, right, or fully justified caption text.
 
-Finer visual control (corner radius, hover effect, colors) is available through CSS
+Finer visual control (hover effect, colors) is available through CSS
 custom properties rather than additional settings. See
 [Customizing the appearance](#customizing-the-appearance) below.
 

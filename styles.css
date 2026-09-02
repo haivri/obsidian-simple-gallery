@@ -12,7 +12,7 @@
 body {
   --simple-gallery-min-size: 160px;
   --simple-gallery-gap: 8px;
-  --simple-gallery-radius: 10px;
+  --simple-gallery-radius: 0px;
   --simple-gallery-row-unit: 8px;
   --simple-gallery-aspect-ratio: 1;
   --simple-gallery-hover-scale: 1.03;
@@ -352,6 +352,28 @@ body.is-mobile .simple-gallery-item-featured .simple-gallery-edit-input {
   display: none;
 }
 
+/* --- Caption placement: over the photo (opt-in via settings) --- */
+
+/*
+ * Overlaid captions never occupy a flow row, so a photo's cell height is
+ * just the photo — adding or editing a caption can't move the grid at all.
+ * The :not() keeps these rules off the "Add a caption" placeholder, which
+ * has its own overlay styling in both placements.
+ */
+body.simple-gallery-caption-overlay .simple-gallery-caption:not(.simple-gallery-caption-empty) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+}
+
+body.simple-gallery-caption-overlay .simple-gallery-img {
+  border-radius: var(--simple-gallery-radius);
+}
+
 /* --- Grid: uniform (opt-in via settings) --- */
 
 body.simple-gallery-layout-grid .simple-gallery-grid {
@@ -483,6 +505,32 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+/* Per-gallery caption-placement overrides, winning over the body rule in both directions. */
+
+.simple-gallery-root.simple-gallery-force-caption-below .simple-gallery-caption:not(.simple-gallery-caption-empty) {
+  position: static;
+  color: var(--simple-gallery-caption-color);
+  background: none;
+}
+
+.simple-gallery-root.simple-gallery-force-caption-below .simple-gallery-img {
+  border-radius: var(--simple-gallery-radius) var(--simple-gallery-radius) 0 0;
+}
+
+.simple-gallery-root.simple-gallery-force-caption-overlay .simple-gallery-caption:not(.simple-gallery-caption-empty) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+}
+
+.simple-gallery-root.simple-gallery-force-caption-overlay .simple-gallery-img {
+  border-radius: var(--simple-gallery-radius);
 }
 
 /* --- Broken/unresolved image placeholder --- */

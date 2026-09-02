@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 - 2026-09-02
+
+- New **Caption placement** setting (global, and per-gallery via `caption-placement:` or the gear modal): **Below the photo** (default) keeps each caption in its own row; **Over the photo** lays it on the photo's bottom edge in a translucent strip — denser, and adding or editing a caption never shifts the gallery's layout. Caption editing follows the placement, so an overlaid caption edits in an overlaid input.
+- New **Rounded corners** setting (global, and per-gallery via `corners:` or the gear modal), replacing the fixed 10px rounding. The default is now 0 — square-cornered, the way a print or portfolio presents photos — with rounding as a deliberate opt-in.
+- Hardened the caption-commit flicker: every item's last measured Masonry row-span is remembered and re-applied inline when a rewritten gallery block re-renders, so committing a caption (or any other edit) no longer lets the whole gallery flash through its fallback sizing for a frame.
+
 ## 1.1.0 - 2026-09-02
 
 Interface overhaul: one quiet menu per photo, zero layout motion on hover, predictable ordering.

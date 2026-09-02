@@ -23,6 +23,7 @@ type GalleryLayout = 'masonry' | 'grid';
 type CaptionFont = 'default' | 'monospace';
 type CaptionLines = 'full' | 'single';
 type CaptionAlign = 'left' | 'center' | 'right' | 'justify';
+type CaptionPlacement = 'below' | 'overlay';
 
 function isCaptionAlign(value: string): value is CaptionAlign {
   return value === 'left' || value === 'center' || value === 'right' || value === 'justify';
@@ -36,6 +37,8 @@ interface SimpleGallerySettings {
   captionFont: CaptionFont;
   captionLines: CaptionLines;
   captionAlign: CaptionAlign;
+  captionPlacement: CaptionPlacement;
+  cornerRadius: number;
 }
 
 const DEFAULT_SETTINGS: SimpleGallerySettings = {
@@ -45,7 +48,11 @@ const DEFAULT_SETTINGS: SimpleGallerySettings = {
   layout: 'masonry',
   captionFont: 'default',
   captionLines: 'full',
-  captionAlign: 'center'
+  captionAlign: 'center',
+  captionPlacement: 'below',
+  // Square by default: rounded thumbnails read as an app choice, not the
+  // photographer's, so any rounding is deliberately opt-in.
+  cornerRadius: 0
 };
 
 // ---------------------------------------------------------------------------
@@ -88,6 +95,8 @@ export interface GalleryBlock {
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
+  captionPlacement?: CaptionPlacement;
+  cornerRadius?: number;
   sections: GallerySection[];
 }
 
@@ -102,7 +111,9 @@ const GAP_LINE = /^gap:\s*(\d+)\s*$/i;
 const CAPTION_FONT_LINE = /^caption-font:\s*(default|monospace)\s*$/i;
 const CAPTION_LINES_LINE = /^caption-lines:\s*(full|single)\s*$/i;
 const CAPTION_ALIGN_LINE = /^caption-align:\s*(left|center|right|justify)\s*$/i;
+const CAPTION_PLACEMENT_LINE = /^caption-placement:\s*(below|overlay)\s*$/i;
 const CAPTIONS_LINE = /^captions:\s*(true|false)\s*$/i;
+const CORNERS_LINE = /^corners:\s*(\d+)\s*$/i;
 const EMBED_LINK = /^!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
 
 function stripEmbedBrackets(reference: string): string {
@@ -194,6 +205,18 @@ export function parseGalleryBlock(source: string): GalleryBlock {
           continue;
         }
 
+        const captionPlacementMatch = CAPTION_PLACEMENT_LINE.exec(trimmed);
+        if (captionPlacementMatch && block.captionPlacement === undefined) {
+          block.captionPlacement = captionPlacementMatch[1].toLowerCase() as CaptionPlacement;
+          continue;
+        }
+
+        const cornersMatch = CORNERS_LINE.exec(trimmed);
+        if (cornersMatch && block.cornerRadius === undefined) {
+          block.cornerRadius = Number(cornersMatch[1]);
+          continue;
+        }
+
         const introMatch = NOTE_LINE.exec(trimmed);
         if (introMatch && block.intro === undefined) {
           block.intro = introMatch[1].trim();
@@ -279,6 +302,8 @@ export function serializeGalleryBlock(block: GalleryBlock): string {
   if (block.captionFont !== undefined) preamble.push(`caption-font: ${block.captionFont}`);
   if (block.captionLines !== undefined) preamble.push(`caption-lines: ${block.captionLines}`);
   if (block.captionAlign !== undefined) preamble.push(`caption-align: ${block.captionAlign}`);
+  if (block.captionPlacement !== undefined) preamble.push(`caption-placement: ${block.captionPlacement}`);
+  if (block.cornerRadius !== undefined) preamble.push(`corners: ${block.cornerRadius}`);
 
   const body: string[] = [];
   for (const section of block.sections) {
@@ -337,11 +362,14 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
     'simple-gallery-force-caption-font-mono',
     'simple-gallery-force-caption-font-default',
     'simple-gallery-force-caption-lines-single',
-    'simple-gallery-force-caption-lines-full'
+    'simple-gallery-force-caption-lines-full',
+    'simple-gallery-force-caption-below',
+    'simple-gallery-force-caption-overlay'
   );
   el.style.removeProperty('--simple-gallery-min-size');
   el.style.removeProperty('--simple-gallery-gap');
   el.style.removeProperty('--simple-gallery-caption-align');
+  el.style.removeProperty('--simple-gallery-radius');
 
   if (block.layout === 'grid') el.addClass('simple-gallery-force-grid');
   else if (block.layout === 'masonry') el.addClass('simple-gallery-force-masonry');
@@ -354,6 +382,13 @@ function applyBlockOverrides(el: HTMLElement, block: GalleryBlock): void {
 
   if (block.captionLines === 'single') el.addClass('simple-gallery-force-caption-lines-single');
   else if (block.captionLines === 'full') el.addClass('simple-gallery-force-caption-lines-full');
+
+  if (block.captionPlacement === 'overlay') el.addClass('simple-gallery-force-caption-overlay');
+  else if (block.captionPlacement === 'below') el.addClass('simple-gallery-force-caption-below');
+
+  if (block.cornerRadius !== undefined) {
+    el.style.setProperty('--simple-gallery-radius', `${block.cornerRadius}px`);
+  }
 
   if (block.minThumbnailSize !== undefined) {
     el.style.setProperty('--simple-gallery-min-size', `${block.minThumbnailSize}px`);
@@ -445,22 +480,58 @@ function renderGalleryBlock(plugin: SimpleGalleryPlugin, block: GalleryBlock, el
 
     const grid = parent.createDiv({ cls: 'simple-gallery-grid' });
     grid.dataset.sectionIndex = String(sectionIndex);
+    const placement = block.captionPlacement ?? plugin.settings.captionPlacement;
     for (const item of section.items) {
-      renderGalleryItem(plugin, grid, item, sourcePath);
+      renderGalleryItem(plugin, grid, item, sourcePath, placement);
     }
   });
 }
 
-function renderGalleryItem(plugin: SimpleGalleryPlugin, grid: HTMLElement, item: GalleryItem, sourcePath: string): void {
+/**
+ * Everything about one item that can change its rendered height, so a cached
+ * row-span is only ever reused for an identical-looking item.
+ */
+function itemSpanKey(item: GalleryItem, src: string, placement: CaptionPlacement): string {
+  return [
+    src,
+    item.caption ?? '',
+    item.featured ? 'f' : '',
+    item.captionFont ?? '',
+    item.captionLines ?? '',
+    item.captionAlign ?? '',
+    placement
+  ].join('|');
+}
+
+/**
+ * Re-applies this item's last measured Masonry span inline. Editing any part
+ * of a gallery rewrites the block and Obsidian re-renders it whole; without
+ * this, every item sits at the CSS fallback span for a frame or two until
+ * the first measurement corrects it — an intermittent full-gallery flicker.
+ */
+function applyCachedSpan(plugin: SimpleGalleryPlugin, el: HTMLElement, spanKey: string): void {
+  el.dataset.spanKey = spanKey;
+  const cached = plugin.rowSpanCache.get(spanKey);
+  if (cached !== undefined) el.style.setProperty('--simple-gallery-row-span', String(cached));
+}
+
+function renderGalleryItem(
+  plugin: SimpleGalleryPlugin,
+  grid: HTMLElement,
+  item: GalleryItem,
+  sourcePath: string,
+  placement: CaptionPlacement
+): void {
   const src = resolveGalleryImageSrc(plugin.app, item.linkpath, sourcePath);
   if (!src) {
-    renderBrokenItem(grid, item);
+    renderBrokenItem(plugin, grid, item, placement);
     return;
   }
 
   const figure = grid.createEl('figure', { cls: 'simple-gallery-item' });
   if (item.featured) figure.addClass('simple-gallery-item-featured');
   applyItemCaptionOverrides(figure, item);
+  applyCachedSpan(plugin, figure, itemSpanKey(item, src, placement));
 
   const photo = figure.createDiv({ cls: 'simple-gallery-photo' });
   const img = photo.createEl('img', { cls: 'simple-gallery-img' });
@@ -501,10 +572,16 @@ function renderItemMenuButton(photo: HTMLElement): void {
   button.draggable = false;
 }
 
-function renderBrokenItem(grid: HTMLElement, item: GalleryItem): void {
+function renderBrokenItem(
+  plugin: SimpleGalleryPlugin,
+  grid: HTMLElement,
+  item: GalleryItem,
+  placement: CaptionPlacement
+): void {
   const broken = grid.createDiv({ cls: 'simple-gallery-item simple-gallery-broken' });
   if (item.featured) broken.addClass('simple-gallery-item-featured');
   applyItemCaptionOverrides(broken, item);
+  applyCachedSpan(plugin, broken, itemSpanKey(item, `broken:${item.raw}`, placement));
   const photo = broken.createDiv({ cls: 'simple-gallery-photo simple-gallery-broken-photo' });
   photo.createSpan({ cls: 'simple-gallery-broken-icon', text: '⚠' });
   photo.createSpan({ cls: 'simple-gallery-broken-text', text: `Image not found: ${item.raw}` });
@@ -758,6 +835,8 @@ interface GalleryOverrides {
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
+  captionPlacement?: CaptionPlacement;
+  cornerRadius?: number;
 }
 
 /**
@@ -776,6 +855,8 @@ class GallerySettingsModal extends Modal {
   private captionFont: CaptionFont;
   private captionLines: CaptionLines;
   private captionAlign: CaptionAlign;
+  private captionPlacement: CaptionPlacement;
+  private cornerRadius: number;
   private saved = false;
 
   constructor(
@@ -795,6 +876,8 @@ class GallerySettingsModal extends Modal {
     this.captionFont = block.captionFont ?? defaults.captionFont;
     this.captionLines = block.captionLines ?? defaults.captionLines;
     this.captionAlign = block.captionAlign ?? defaults.captionAlign;
+    this.captionPlacement = block.captionPlacement ?? defaults.captionPlacement;
+    this.cornerRadius = block.cornerRadius ?? defaults.cornerRadius;
   }
 
   onOpen(): void {
@@ -834,6 +917,16 @@ class GallerySettingsModal extends Modal {
         .setValue(this.gapSize)
         .onChange((value) => {
           this.gapSize = value;
+          this.preview();
+        }));
+
+    new Setting(contentEl)
+      .setName('Rounded corners')
+      .addSlider((slider) => slider
+        .setLimits(0, 24, 1)
+        .setValue(this.cornerRadius)
+        .onChange((value) => {
+          this.cornerRadius = value;
           this.preview();
         }));
 
@@ -882,6 +975,17 @@ class GallerySettingsModal extends Modal {
         }));
 
     new Setting(contentEl)
+      .setName('Caption placement')
+      .addDropdown((dropdown) => dropdown
+        .addOption('below', 'Below the photo')
+        .addOption('overlay', 'Over the photo')
+        .setValue(this.captionPlacement)
+        .onChange((value) => {
+          this.captionPlacement = value === 'overlay' ? 'overlay' : 'below';
+          this.preview();
+        }));
+
+    new Setting(contentEl)
       .addButton((button) => button
         .setButtonText('Save')
         .setCta()
@@ -895,7 +999,10 @@ class GallerySettingsModal extends Modal {
             showCaptions: this.showCaptions === this.defaults.showCaptions ? undefined : this.showCaptions,
             captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
             captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
-            captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign
+            captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign,
+            captionPlacement:
+              this.captionPlacement === this.defaults.captionPlacement ? undefined : this.captionPlacement,
+            cornerRadius: this.cornerRadius === this.defaults.cornerRadius ? undefined : this.cornerRadius
           });
           this.close();
         }))
@@ -933,7 +1040,9 @@ class GallerySettingsModal extends Modal {
       showCaptions: this.showCaptions,
       captionFont: this.captionFont,
       captionLines: this.captionLines,
-      captionAlign: this.captionAlign
+      captionAlign: this.captionAlign,
+      captionPlacement: this.captionPlacement,
+      cornerRadius: this.cornerRadius
     });
   }
 
@@ -945,6 +1054,8 @@ class GallerySettingsModal extends Modal {
     this.captionFont = this.defaults.captionFont;
     this.captionLines = this.defaults.captionLines;
     this.captionAlign = this.defaults.captionAlign;
+    this.captionPlacement = this.defaults.captionPlacement;
+    this.cornerRadius = this.defaults.cornerRadius;
     this.onOpen();
     this.preview();
   }
@@ -1284,6 +1395,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.block.captionFont = overrides.captionFont;
     this.block.captionLines = overrides.captionLines;
     this.block.captionAlign = overrides.captionAlign;
+    this.block.captionPlacement = overrides.captionPlacement;
+    this.block.cornerRadius = overrides.cornerRadius;
     await this.writeBlockToFile();
   }
 
@@ -1362,12 +1475,15 @@ class GalleryRenderChild extends MarkdownRenderChild {
    */
   private startCaptionEdit(captionEl: HTMLElement, sectionIndex: number, itemIndex: number): void {
     const isPlaceholder = captionEl.hasClass('simple-gallery-caption-empty');
+    // A caption rendered as an overlay (the placeholder always; real captions
+    // in "over photo" placement) gets an overlaid editor too.
+    const overlaid = isPlaceholder || getComputedStyle(captionEl).position === 'absolute';
     this.makeEditable(
       captionEl,
       isPlaceholder ? '' : captionEl.getText(),
       'Add a caption…',
       (value) => void this.commitCaptionChange(sectionIndex, itemIndex, value),
-      isPlaceholder ? 'simple-gallery-edit-input-overlay' : undefined
+      overlaid ? 'simple-gallery-edit-input-overlay' : undefined
     );
   }
 
@@ -1574,6 +1690,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
       const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
       item.style.setProperty('--simple-gallery-row-span', String(span));
+      if (item.dataset.spanKey) this.plugin.rowSpanCache.set(item.dataset.spanKey, span);
     });
   }
 }
@@ -1595,6 +1712,14 @@ export default class SimpleGalleryPlugin extends Plugin {
    * file's mtime, so an edited image simply misses and re-measures.
    */
   readonly imageAspectRatios = new Map<string, number>();
+  /**
+   * Last measured Masonry row-span per item appearance (see itemSpanKey).
+   * Re-applied inline on render so a rewritten block reappears at its exact
+   * height instead of flashing through the CSS fallback span. A stale entry
+   * (e.g. after a pane resize) is corrected by the next measurement, exactly
+   * as the fallback span would have been.
+   */
+  readonly rowSpanCache = new Map<string, number>();
   private initialRenderTimer: number | null = null;
 
   rememberImageAspectRatio(img: HTMLImageElement): void {
@@ -1663,11 +1788,13 @@ export default class SimpleGalleryPlugin extends Plugin {
       'simple-gallery-hide-captions',
       'simple-gallery-layout-grid',
       'simple-gallery-caption-font-mono',
-      'simple-gallery-caption-lines-single'
+      'simple-gallery-caption-lines-single',
+      'simple-gallery-caption-overlay'
     );
     document.body.style.removeProperty('--simple-gallery-min-size');
     document.body.style.removeProperty('--simple-gallery-gap');
     document.body.style.removeProperty('--simple-gallery-caption-align');
+    document.body.style.removeProperty('--simple-gallery-radius');
   }
 
   async saveSettings(): Promise<void> {
@@ -1748,10 +1875,12 @@ export default class SimpleGalleryPlugin extends Plugin {
     document.body.style.setProperty('--simple-gallery-min-size', `${this.settings.minThumbnailSize}px`);
     document.body.style.setProperty('--simple-gallery-gap', `${this.settings.gapSize}px`);
     document.body.style.setProperty('--simple-gallery-caption-align', this.settings.captionAlign);
+    document.body.style.setProperty('--simple-gallery-radius', `${this.settings.cornerRadius}px`);
     document.body.classList.toggle('simple-gallery-hide-captions', !this.settings.showCaptions);
     document.body.classList.toggle('simple-gallery-layout-grid', this.settings.layout === 'grid');
     document.body.classList.toggle('simple-gallery-caption-font-mono', this.settings.captionFont === 'monospace');
     document.body.classList.toggle('simple-gallery-caption-lines-single', this.settings.captionLines === 'single');
+    document.body.classList.toggle('simple-gallery-caption-overlay', this.settings.captionPlacement === 'overlay');
 
     for (const instance of this.galleryInstances) instance.recomputeNow();
   }
@@ -1763,6 +1892,9 @@ const LAYOUT_DESC =
 const SHOW_CAPTIONS_DESC =
   'Display captions under images that have one. Turn off for a clean, caption-free grid ' +
   '— useful for print or export — without removing captions from the source.';
+const CAPTION_PLACEMENT_DESC =
+  'Below keeps each caption in its own row beneath the photo. Over lays the caption on the ' +
+  'photo’s bottom edge — denser, and adding a caption never changes the gallery’s layout.';
 
 class SimpleGallerySettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: SimpleGalleryPlugin) {
@@ -1810,12 +1942,37 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         }
       },
       {
+        name: 'Rounded corners',
+        desc: 'Corner roundness of each thumbnail, in pixels. Zero keeps the photos square-cornered.',
+        control: {
+          type: 'slider',
+          key: 'cornerRadius',
+          defaultValue: DEFAULT_SETTINGS.cornerRadius,
+          min: 0,
+          max: 24,
+          step: 1
+        }
+      },
+      {
         name: 'Show captions',
         desc: SHOW_CAPTIONS_DESC,
         control: {
           type: 'toggle',
           key: 'showCaptions',
           defaultValue: DEFAULT_SETTINGS.showCaptions
+        }
+      },
+      {
+        name: 'Caption placement',
+        desc: CAPTION_PLACEMENT_DESC,
+        control: {
+          type: 'dropdown',
+          key: 'captionPlacement',
+          defaultValue: DEFAULT_SETTINGS.captionPlacement,
+          options: {
+            below: 'Below the photo',
+            overlay: 'Over the photo'
+          }
         }
       },
       {
@@ -1871,6 +2028,8 @@ class SimpleGallerySettingTab extends PluginSettingTab {
       case 'captionFont': return this.plugin.settings.captionFont;
       case 'captionLines': return this.plugin.settings.captionLines;
       case 'captionAlign': return this.plugin.settings.captionAlign;
+      case 'captionPlacement': return this.plugin.settings.captionPlacement;
+      case 'cornerRadius': return this.plugin.settings.cornerRadius;
       default: return undefined;
     }
   }
@@ -1897,6 +2056,12 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         break;
       case 'captionAlign':
         if (typeof value === 'string' && isCaptionAlign(value)) this.plugin.settings.captionAlign = value;
+        break;
+      case 'captionPlacement':
+        if (value === 'below' || value === 'overlay') this.plugin.settings.captionPlacement = value;
+        break;
+      case 'cornerRadius':
+        if (typeof value === 'number') this.plugin.settings.cornerRadius = value;
         break;
       default:
         return;
@@ -1948,12 +2113,35 @@ class SimpleGallerySettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
+      .setName('Rounded corners')
+      .setDesc('Corner roundness of each thumbnail, in pixels. Zero keeps the photos square-cornered.')
+      .addSlider((slider) => slider
+        .setLimits(0, 24, 1)
+        .setValue(this.plugin.settings.cornerRadius)
+        .onChange(async (value) => {
+          this.plugin.settings.cornerRadius = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
       .setName('Show captions')
       .setDesc(SHOW_CAPTIONS_DESC)
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.showCaptions)
         .onChange(async (value) => {
           this.plugin.settings.showCaptions = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Caption placement')
+      .setDesc(CAPTION_PLACEMENT_DESC)
+      .addDropdown((dropdown) => dropdown
+        .addOption('below', 'Below the photo')
+        .addOption('overlay', 'Over the photo')
+        .setValue(this.plugin.settings.captionPlacement)
+        .onChange(async (value) => {
+          this.plugin.settings.captionPlacement = value === 'overlay' ? 'overlay' : 'below';
           await this.plugin.saveSettings();
         }));
 
