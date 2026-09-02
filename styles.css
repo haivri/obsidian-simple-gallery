@@ -70,11 +70,6 @@ body {
   color: var(--text-normal);
 }
 
-.simple-gallery-remove-button:hover {
-  color: var(--text-error);
-  border-color: color-mix(in srgb, var(--text-error) 55%, var(--simple-gallery-border));
-}
-
 .simple-gallery-destructive-button {
   background: var(--background-modifier-error);
   color: var(--text-on-accent);
@@ -145,11 +140,17 @@ body {
 
 /* --- Grid: Masonry (default) --- */
 
+/*
+ * Deliberately not `grid-auto-flow: dense`: dense packing lets the browser
+ * pull later photos backward to fill gaps, so the visual order stops
+ * matching the list order — which makes drag-reorder and the menu's
+ * "new section above/below" split somewhere other than where it looks
+ * like it will. An occasional gap beside a featured photo is the price.
+ */
 .simple-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--simple-gallery-min-size), 1fr));
   grid-auto-rows: var(--simple-gallery-row-unit);
-  grid-auto-flow: dense;
   align-items: start;
   gap: var(--simple-gallery-gap);
 }
@@ -207,38 +208,31 @@ body {
 }
 
 /*
- * The "Add a caption" placeholder is stripped out in Reading Mode. In
- * Live Preview it occupies the same normal-flow row a real caption would,
- * expanding downward beneath the photo. GalleryRenderChild follows this
- * short transition and updates the Masonry row span as the row opens/closes.
+ * The "Add a caption" placeholder is stripped out in Reading Mode. In Live
+ * Preview it is an overlay strip on the photo's bottom edge — never a
+ * normal-flow row — so revealing it on hover cannot change the item's
+ * height, and the Masonry grid stays perfectly still under the pointer.
  */
 .simple-gallery-caption-empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   box-sizing: border-box;
-  min-height: 0;
-  max-height: 0;
   margin: 0;
-  padding: 0 0.5em;
-  overflow: hidden;
-  color: var(--simple-gallery-caption-color);
+  padding: 0.45em 0.65em;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
   text-align: center;
   font-style: italic;
-  transform: translateY(-0.35em);
+  font-size: 0.78em;
   opacity: 0;
   pointer-events: none;
-  transition:
-    min-height 140ms ease-out,
-    max-height 160ms ease-out,
-    padding 160ms ease-out,
-    transform 160ms ease-out,
-    opacity 160ms ease-out;
+  transition: opacity 120ms ease-out;
 }
 
-.simple-gallery-item:hover .simple-gallery-caption-empty,
-.simple-gallery-item-active .simple-gallery-caption-empty {
-  min-height: 2.25em;
-  max-height: 4.5em;
-  padding: 0.5em 0.65em;
-  transform: translateY(0);
+.simple-gallery-item:hover .simple-gallery-caption-empty {
   opacity: 1;
   pointer-events: auto;
 }
@@ -263,6 +257,20 @@ body {
   font-size: 0.95em;
   font-weight: 600;
   text-align: left;
+}
+
+/*
+ * Editing a not-yet-existing caption keeps the input in the placeholder's
+ * overlaid position, so opening the editor doesn't reflow the grid either.
+ * The committed caption then renders as a real flow row — one honest reflow.
+ */
+.simple-gallery-edit-input-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: auto;
 }
 
 .simple-gallery-draggable {
@@ -292,147 +300,16 @@ body {
   cursor: text;
 }
 
-/* --- Per-photo control panel (Live Preview only; hover/tap-revealed) --- */
-
-.simple-gallery-item-controls {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: block;
-  padding: 0;
-  color: #fff;
-  background: transparent;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease-out;
-}
-
-.simple-gallery-item:hover .simple-gallery-item-controls,
-.simple-gallery-item-active .simple-gallery-item-controls,
-.simple-gallery-item-controls-open {
-  opacity: 1;
-}
-
-/* Mobile's direct photo tap writes this class on the panel itself. Keep it
- * authoritative even when a theme or snippet overrides ancestor selectors. */
-.simple-gallery-item-controls.simple-gallery-item-controls-open {
-  opacity: 1 !important;
-}
-
-.simple-gallery-item-controls > button {
-  pointer-events: none;
-}
-
-.simple-gallery-item:hover .simple-gallery-item-controls > button,
-.simple-gallery-item-active .simple-gallery-item-controls > button,
-.simple-gallery-item-controls-open > button {
-  pointer-events: auto;
-}
-
-.simple-gallery-item-controls.simple-gallery-item-controls-open > button {
-  pointer-events: auto !important;
-}
-
-.simple-gallery-section-insert {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.15em 0.6em;
-  font-size: 0.68em;
-  line-height: 1.4;
-  white-space: nowrap;
-  color: var(--text-on-accent);
-  background: var(--interactive-accent);
-  border: none;
-  border-radius: 999px;
-  opacity: 0.9;
-  cursor: pointer;
-  transition: opacity 120ms ease-out;
-}
-
-.simple-gallery-section-insert-above {
-  top: 0.4em;
-}
-
-.simple-gallery-section-insert-below {
-  bottom: 0.4em;
-}
-
-.simple-gallery-section-insert:hover {
-  opacity: 1;
-}
-
-/*
- * Feature-toggle ("★") and per-photo caption settings live inside the panel.
- * Desktop reveals them on hover. Mobile reveals all four controls on photo tap.
- */
-.simple-gallery-feature-toggle {
-  position: absolute;
-  bottom: 0.4em;
-  left: 0.4em;
-  width: 1.7em;
-  height: 1.7em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 0.75em;
-  line-height: 1;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
-  opacity: 0.9;
-  cursor: pointer;
-  transition: opacity 120ms ease-out, background 120ms ease-out;
-}
-
-.simple-gallery-feature-toggle:hover {
-  opacity: 1;
-}
-
-.simple-gallery-feature-toggle-on {
-  color: #fff;
-  background: var(--interactive-accent);
-  opacity: 0.95;
-}
-
-.simple-gallery-item:hover .simple-gallery-feature-toggle-on,
-.simple-gallery-item-active .simple-gallery-feature-toggle-on {
-  opacity: 1;
-}
-
-.simple-gallery-photo-settings {
-  position: absolute;
-  right: 0.4em;
-  bottom: 0.4em;
-  min-width: 1.7em;
-  height: 1.7em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35em;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 999px;
-  font-size: 0.75em;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.simple-gallery-control-label {
-  display: none;
-}
+/* --- Per-photo "⋯" menu button (Live Preview only) --- */
 
 .simple-gallery-item-menu {
   position: absolute;
   top: 0.4em;
   right: 0.4em;
-  z-index: 4;
-  width: 1.7em;
-  height: 1.7em;
-  display: none;
+  z-index: 3;
+  width: 1.9em;
+  height: 1.9em;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -440,91 +317,35 @@ body {
   line-height: 1;
   color: #fff;
   background: rgba(0, 0, 0, 0.5);
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  opacity: 0.45;
+  opacity: 0;
+  pointer-events: none;
   cursor: pointer;
   transition: opacity 120ms ease-out;
 }
 
-.simple-gallery-item-menu[aria-expanded="true"] {
-  opacity: 1;
-  background: var(--interactive-accent);
-}
-
 .simple-gallery-item:hover .simple-gallery-item-menu,
-.simple-gallery-item-active .simple-gallery-item-menu {
+.simple-gallery-item-menu:focus-visible {
   opacity: 0.9;
+  pointer-events: auto;
 }
 
 .simple-gallery-item-menu:hover {
   opacity: 1;
 }
 
-body.is-mobile .simple-gallery-item-controls {
-  display: block;
-  padding: 0;
-  box-sizing: border-box;
-  background: transparent;
-}
-
-body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-open) {
-  opacity: 0;
-}
-
-body.is-mobile .simple-gallery-item-controls:not(.simple-gallery-item-controls-open) > button {
-  pointer-events: none;
-}
-
-body.is-mobile .simple-gallery-item-controls > button {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-body.is-mobile .simple-gallery-section-insert {
-  width: auto;
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.35em 0.7em;
-  font-size: clamp(0.6rem, 2.4vw, 0.72rem);
-  line-height: 1.15;
-  transform: translateX(-50%);
-}
-
-body.is-mobile .simple-gallery-feature-toggle {
+/* No hover on touch: the menu button is always quietly present instead. */
+body.is-mobile .simple-gallery-item-menu {
   width: 2.25rem;
   height: 2.25rem;
-  font-size: 0.9em;
-}
-
-body.is-mobile .simple-gallery-photo-settings {
-  width: 2.25rem;
-  min-width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  font-size: 0.85em;
-}
-
-body.is-mobile .simple-gallery-item-featured.simple-gallery-item-active .simple-gallery-caption-empty {
-  min-height: 3em;
-  padding-block: 0.7em;
+  opacity: 0.75;
+  pointer-events: auto;
 }
 
 body.is-mobile .simple-gallery-item-featured .simple-gallery-edit-input {
   min-height: 3em;
   padding-block: 0.7em;
-}
-
-body.is-mobile .simple-gallery-item-controls > .simple-gallery-feature-toggle-on {
-  background: var(--interactive-accent);
-}
-
-body.is-mobile .simple-gallery-item-controls > button:hover,
-body.is-mobile .simple-gallery-item-controls > button:active {
-  background: var(--interactive-accent);
 }
 
 .simple-gallery-hide-captions .simple-gallery-caption {
@@ -692,7 +513,6 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
  * unconditional even when that lifecycle/mode detection is bypassed.
  */
 .markdown-reading-view .simple-gallery-toolbar,
-.markdown-reading-view .simple-gallery-item-controls,
 .markdown-reading-view .simple-gallery-item-menu,
 .markdown-reading-view .simple-gallery-section-remove,
 .markdown-reading-view .simple-gallery-caption-empty,
@@ -702,7 +522,6 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 
 @media print {
   .simple-gallery-toolbar,
-  .simple-gallery-item-controls,
   .simple-gallery-item-menu,
   .simple-gallery-section-remove,
   .simple-gallery-caption-empty,

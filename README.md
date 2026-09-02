@@ -46,8 +46,9 @@ Switch to the **Grid** layout in settings for evenly cropped, uniform tiles inst
   dragging one onto another, edit captions or section names by clicking them, and feature
   any number of photos as bigger visual cells — the note's underlying code block updates
   to match, no manual editing required.
-- Photo controls appear on hover on desktop. On mobile, tapping a photo reveals four compact
-  corner controls for section boundaries, larger sizing, and per-photo caption settings.
+- Each photo carries a single quiet "⋯" button (on hover on desktop, always present on
+  mobile) opening a native menu with every per-photo action: captions, larger sizing,
+  section boundaries, and removing the photo from the gallery.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.
@@ -108,38 +109,42 @@ one is independent and the remaining cells reflow around all of them.
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
-On desktop, hovering a photo reveals its controls directly. On mobile, the first tap on a
-photo reveals the same layout without an extra menu: section above and below form the
-center column, with larger sizing at lower left and caption settings at lower right. Tapping
-elsewhere closes them; tapping another photo moves the controls there immediately. A second
-tap on the active photo closes its controls and leaves the tap available to an installed
-fullscreen or lightbox plugin. With the [Fullscreen Image](https://github.com/haivri/obsidian-fullscreen-image)
+Each photo carries one piece of chrome: a "⋯" button in its top-right corner (revealed on
+hover on desktop, always quietly present on mobile) that opens a native menu with every
+per-photo action. A plain click or tap on the photo itself is never intercepted, so it
+stays available to an installed fullscreen or lightbox plugin in both modes. With the
+[Fullscreen Image](https://github.com/haivri/obsidian-fullscreen-image)
 plugin installed, a photo opened from a gallery also gets prev/next navigation across the
 whole gallery — arrow buttons, a position counter, and the left/right arrow keys.
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.
-- **Edit a caption** — A photo's caption area reveals an "Add a caption" placeholder beneath
-  the photo (or the existing caption, always visible if it has one); click either to edit
-  in place. Press
-  Enter or click elsewhere to save, Escape to cancel. Clearing the text removes the caption.
+- **Edit a caption** — Hovering a photo without a caption reveals an "Add a caption" strip
+  overlaid on its bottom edge (a photo with one shows its caption beneath, always); click
+  either to edit in place — or pick **Add caption** / **Edit caption** from the photo's "⋯"
+  menu. Because the strip and its editor are overlays, nothing in the grid moves until a
+  caption is actually saved. Press Enter or click elsewhere to save, Escape to cancel.
+  Clearing the text removes the caption.
 - **Rename a section** — Click a section's name to edit it the same way. Clearing the name
   creates an unnamed section: the transparent header still keeps the next photos in their
   own section and remains a clickable area if you want to name it again.
-- **Add a section** — A photo's corner reveals small "+ section above" / "+ section below"
-  buttons; click one to split its section into two right there, with a "New section" label
-  ready to rename. Splitting at the very first or last photo of a section creates an empty
-  section on that side rather than being disabled — a rare, harmless edge case.
+- **Add a section** — Pick **New section above** or **New section below** from a photo's
+  "⋯" menu to split its section into two right there, with a "New section" label ready to
+  rename. Splitting at the very first or last photo of a section creates an empty section
+  on that side rather than being disabled — a rare, harmless edge case.
 - **Remove a section** — Click **Remove section** beside its heading. Only the grouping and
   section note are removed; its photos are kept in order and merged into the neighboring
   section.
-- **Make photos larger** — Each "★" button independently toggles that photo's larger cell
-  (roughly 2×2). Multiple photos can be enlarged in the same section, with the rest flowing
-  around them. The larger cells also show in Reading Mode because sizing is presentation,
-  not an editing affordance.
-- **Photo caption settings** — The **Aa** control sets caption font, full/single-line length,
-  and alignment for only that photo. Each control can inherit the gallery setting or carry
-  its own override.
+- **Make photos larger** — **Make photo larger** in the "⋯" menu independently toggles that
+  photo's larger cell (roughly 2×2). Multiple photos can be enlarged in the same section,
+  with the rest flowing around them. The larger cells also show in Reading Mode because
+  sizing is presentation, not an editing affordance.
+- **Photo caption settings** — **Caption settings…** in the "⋯" menu sets caption font,
+  full/single-line length, and alignment for only that photo. Each control can inherit the
+  gallery setting or carry its own override.
+- **Remove a photo** — **Remove photo** in the "⋯" menu takes just that photo out of the
+  gallery block. The image file itself stays in the vault untouched. It works on a
+  broken-reference placeholder too, which is the easiest way to clear one out.
 - **Gallery settings** — Use the **⚙ Gallery settings** control in the toolbar above the
   photos to open the same Layout / thumbnail size / gap / captions / caption font / caption
   length / caption alignment controls as the main Settings tab, scoped to just this gallery.
@@ -149,12 +154,12 @@ whole gallery — arrow buttons, a position counter, and the left/right arrow ke
   the modal restores its original appearance. A control left matching the current global
   default doesn't get written as an override, so a gallery you haven't customized stays
   clean either way.
-- **Remove gallery** — The adjacent **Remove gallery** control asks for confirmation, then
-  removes only the fenced gallery block from the note. Referenced image files remain in the
-  vault untouched.
+- **Remove gallery** — At the bottom of the same Gallery settings modal, **Remove gallery…**
+  asks for confirmation, then removes only the fenced gallery block from the note.
+  Referenced image files remain in the vault untouched.
 
-The gallery toolbar is contextual: its settings and removal buttons appear while the
-gallery is hovered, keyboard-focused, or selected, and disappear when focus moves elsewhere.
+The gallery toolbar is contextual: the settings button appears while the gallery is
+hovered, keyboard-focused, or selected, and disappears when focus moves elsewhere.
 
 Every one of these rewrites just the affected part of the gallery's code block and leaves
 everything else — other galleries, the rest of the note — untouched.
@@ -220,7 +225,7 @@ other stray text.
 ### Per-photo caption overrides
 
 The same three caption appearance fields can be indented beneath one image to override
-only that photo. The **Aa** photo control writes these for you:
+only that photo. The photo menu's **Caption settings…** writes these for you:
 
     ```simple-gallery
     - ![[brussels-1.jpg]]

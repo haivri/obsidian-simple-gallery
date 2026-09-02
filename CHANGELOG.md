@@ -1,7 +1,14 @@
 # Changelog
 
-## 1.0.5 - 2026-09-02
+## 1.1.0 - 2026-09-02
 
+Interface overhaul: one quiet menu per photo, zero layout motion on hover, predictable ordering.
+
+- Replaced the four-control hover overlay ("+ section above/below", "★", "Aa") with a single "⋯" button per photo opening a native menu: Add/Edit caption, Make photo larger / Use regular size, Caption settings, New section above/below, and the new **Remove photo** (removes just that photo's lines from the block; the image file is kept — works on broken-reference placeholders too).
+- The "Add a caption" placeholder is now an overlay strip on the photo's bottom edge instead of an expanding row beneath it, and its editor opens in the same overlaid position — hovering and editing no longer make the gallery jump; the grid reflows exactly once, when a caption is saved.
+- Dropped the whole mobile tap-to-reveal state machine: the "⋯" button is simply always present on mobile (the menu opens as a native bottom sheet), and a plain tap on a photo passes through untouched to fullscreen/lightbox plugins.
+- Masonry no longer uses dense grid packing, so the visual order always matches the list order — drag-reorder and section splits now happen exactly where they appear to.
+- "Remove gallery" moved from a second always-hovering toolbar pill to a confirmed action at the bottom of the per-gallery settings modal, leaving one quiet gear button.
 - Fixed Reading Mode scrolling being repeatedly yanked back when passing a gallery. The gallery's height used to settle in waves after render (fallback size, then a collapse while lazy images were still empty, then ballooning as each image loaded), and Reading Mode's re-rendering of sections scrolled back into view replayed those waves on every approach, so scroll anchoring kept throwing the reader back. Now: an image that hasn't loaded is never measured (its placeholder span stands), vault images load eagerly instead of lazily (only remote URLs stay lazy), and each image's natural proportions are remembered for the session so a re-rendered gallery reserves its exact final height before a single image loads.
 
 ## 1.0.4 - 2026-09-02
