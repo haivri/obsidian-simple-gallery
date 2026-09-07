@@ -22,10 +22,9 @@ updates immediately to match — no manual list-editing needed.
 
 ### Click to edit captions and section names
 
-No need to open the code block at all: click any caption (or the "Add a caption"
-placeholder on a photo that doesn't have one yet) or a section's name to edit it right
-there. Press Enter or click away to save, Escape to cancel. A section name may be left
-blank; its transparent header row still preserves the section break and remains clickable.
+Click a caption to open **Photo settings**, or choose it from the photo’s “⋯” menu.
+Edit the caption, size, and caption appearance together. **Done** saves; **Cancel** discards
+changes. Closing the dialog also saves. Section names still edit directly in the gallery.
 
 ### A photographer-style default
 
@@ -123,15 +122,11 @@ whole gallery — arrow buttons, a position counter, and the left/right arrow ke
 
 - **Reorder or swap** — Click and drag any thumbnail to a new position within its section.
   Drag it onto a photo in another section to swap those two photos between sections.
-- **Edit a caption** — Hovering a photo without a caption reveals an "Add a caption" strip
-  overlaid on its bottom edge (a photo with one shows its caption beneath, always); click
-  either to edit in place — or pick **Add caption** / **Edit caption** from the photo's "⋯"
-  menu. Because the strip and its editor are overlays, nothing in the grid moves until a
-  caption is actually saved. Press Enter or click elsewhere to save, Escape to cancel.
-  Clearing the text removes the caption.
-- **Rename a section** — Click a section's name to edit it the same way. Clearing the name
-  creates an unnamed section: the transparent header still keeps the next photos in their
-  own section and remains a clickable area if you want to name it again.
+- **Photo settings** — Click a caption or choose **Photo settings…** from “⋯”. Edit the
+  complete caption alongside visibility, alignment, font, length, and photo size. Clearing
+  the text removes the caption. Line breaks are saved as spaces. Gallery captions show at
+  most four lines; the full text stays in the note and remains available to the fullscreen viewer.
+- **Rename a section** — Click its name, then press Enter or click away to save; Escape cancels.
 - **Add a section** — Pick **New section above** or **New section below** from a photo's
   "⋯" menu to split its section into two right there, with a "New section" label ready to
   rename. Splitting at the very first or last photo of a section creates an empty section
@@ -139,25 +134,19 @@ whole gallery — arrow buttons, a position counter, and the left/right arrow ke
 - **Remove a section** — Click **Remove section** beside its heading. Only the grouping and
   section note are removed; its photos are kept in order and merged into the neighboring
   section.
-- **Make photos larger** — **Make photo larger** in the "⋯" menu independently toggles that
-  photo's larger cell (roughly 2×2). Multiple photos can be enlarged in the same section,
-  with the rest flowing around them. The larger cells also show in Reading Mode because
-  sizing is presentation, not an editing affordance.
-- **Photo caption settings** — **Caption settings…** in the "⋯" menu sets caption font,
-  full/single-line length, and alignment for only that photo. Each control can inherit the
-  gallery setting or carry its own override.
+- **Photo size** — The minus/plus controls in Photo settings select regular or larger cells
+  in Masonry and Grid. In Justified, change the gallery’s photo size to adjust row height;
+  individual enlargement is disabled because the layout keeps its rows uniform.
 - **Remove a photo** — **Remove photo** in the "⋯" menu takes just that photo out of the
   gallery block. The image file itself stays in the vault untouched. It works on a
   broken-reference placeholder too, which is the easiest way to clear one out.
-- **Gallery settings** — Use the gear icon that appears above the
-  photos to open the same Layout / thumbnail size / gap / corners / captions / caption font / caption
-  length / caption alignment controls as the main Settings tab, scoped to just this gallery.
-  **Reset to defaults** previews the current global defaults and removes this gallery's
-  overrides when saved. All changes preview live behind the modal; **Save** writes them to
-  the gallery, while **Cancel** or closing
-  the modal restores its original appearance. A control left matching the current global
-  default doesn't get written as an override, so a gallery you haven't customized stays
-  clean either way.
+- **Gallery settings** — The gear opens the same appearance controls as plugin settings.
+  Choose layout, photo size, spacing, caption visibility, and alignment. Expand **Fine-tune
+  size & corners** for exact pixels, or **Caption style & length** for the finer controls.
+  Source labels show inherited and overridden values. The reset arrow on a row restores
+  inheritance; **Use plugin defaults** resets the whole gallery. Choosing even the same
+  value explicitly creates an override, so later plugin changes cannot silently change it.
+  Appearance changes preview behind the dialog. **Done** or closing saves; **Cancel** restores.
 - **Remove gallery** — At the bottom of the same Gallery settings modal, **Remove gallery…**
   asks for confirmation, then removes only the fenced gallery block from the note.
   Referenced image files remain in the vault untouched.
@@ -298,15 +287,17 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   the gallery's layout. **Below the photo** gives each caption its own row instead.
 - **Caption font** — Default uses the normal text font. Typewriter uses your configured
   monospace font instead.
-- **Caption length** — Full (default) shows the whole caption, wrapping onto multiple
-  lines if needed. Single line truncates a long caption with an ellipsis instead. This
-  applies to the gallery view; Fullscreen Image has its own caption length setting, which
-  defaults to showing the full caption even when the gallery truncates it.
-- **Caption alignment** — Center (default), left, right, or fully justified caption text.
+- **Caption length** — Single line, or up to four lines (the existing `full` value).
+  This limit prevents long captions from stretching a gallery. Complete text remains stored;
+  the fullscreen viewer controls its own caption length.
+- **Caption alignment** — The same left, center, right, and justify buttons at all three levels.
+  The selected button always shows the effective alignment, including an inherited value.
+- **Photo size & spacing** — Quick presets at both plugin and gallery levels, with current
+  pixel values shown. Expand **Fine-tune size & corners** to enter an exact value or use a slider.
 
-Thumbnail size and gap are deliberately not global settings — the built-in defaults
-(160px minimum, 8px gap) suit most galleries, and any gallery that needs different
-values sets them for itself via the gear modal or `min-size:`/`gap:` lines.
+Each setting identifies its source: **Plugin default**, **From plugin defaults**, **Gallery
+override**, **From gallery**, or **Photo override**. Use the reset arrow to inherit again.
+Resetting appearance never removes caption text or changes the photo’s size.
 
 Finer visual control (hover effect, colors) is available through CSS
 custom properties rather than additional settings. See

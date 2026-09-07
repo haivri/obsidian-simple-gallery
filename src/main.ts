@@ -4,7 +4,6 @@ import {
   EditorPosition,
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
-  ButtonComponent,
   MarkdownView,
   Menu,
   Modal,
@@ -23,9 +22,7 @@ import {
 
 type GalleryLayout = 'masonry' | 'grid' | 'justified';
 
-function isGalleryLayout(value: string): value is GalleryLayout {
-  return value === 'masonry' || value === 'grid' || value === 'justified';
-}
+
 type CaptionFont = 'default' | 'monospace';
 type CaptionLines = 'full' | 'single';
 type CaptionAlign = 'left' | 'center' | 'right' | 'justify';
@@ -63,9 +60,7 @@ function stampFullscreenCaption(captionEl: HTMLElement, visibility: CaptionVisib
     visibility === 'both' || visibility === 'fullscreen' ? 'show' : 'hide';
 }
 
-function isCaptionAlign(value: string): value is CaptionAlign {
-  return value === 'left' || value === 'center' || value === 'right' || value === 'justify';
-}
+
 
 /**
  * The click that dismisses an open caption/title editor must do only that.
@@ -799,10 +794,12 @@ class RemoveGalleryModal extends Modal {
 }
 
 // ---------------------------------------------------------------------------
-// Per-photo caption settings modal, opened from the photo's Aa control.
+// Shared appearance controls and unified photo settings.
 // ---------------------------------------------------------------------------
 
-interface PhotoCaptionOverrides {
+interface PhotoSettingsOverrides {
+  caption?: string;
+  featured?: true;
   captionFont?: CaptionFont;
   captionLines?: CaptionLines;
   captionAlign?: CaptionAlign;
@@ -823,178 +820,6 @@ const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; icon: string; label: string 
   { value: 'justify', icon: 'align-justify', label: 'Justify' }
 ];
 
-/**
- * The familiar four alignment icon buttons in place of a dropdown. With
- * allowClear, clicking the already-active button clears the override back
- * to "inherit" (the per-photo modal's "use gallery setting").
- */
-function addCaptionAlignButtons(
-  setting: Setting,
-  getValue: () => CaptionAlign | undefined,
-  setValue: (value: CaptionAlign | undefined) => void,
-  allowClear: boolean
-): void {
-  const buttons = new Map<CaptionAlign, ButtonComponent>();
-  const refresh = (): void => {
-    const current = getValue();
-    buttons.forEach((button, align) =>
-      button.buttonEl.toggleClass('simple-gallery-align-active', align === current));
-  };
-  for (const option of CAPTION_ALIGN_OPTIONS) {
-    setting.addButton((button) => {
-      buttons.set(option.value, button);
-      button
-        .setIcon(option.icon)
-        .setTooltip(option.label)
-        .onClick(() => {
-          setValue(allowClear && getValue() === option.value ? undefined : option.value);
-          refresh();
-        });
-      button.buttonEl.addClass('simple-gallery-align-button');
-    });
-  }
-  refresh();
-}
-
-class PhotoCaptionSettingsModal extends Modal {
-  private captionFont?: CaptionFont;
-  private captionLines?: CaptionLines;
-  private captionAlign?: CaptionAlign;
-  private captionVisibility?: CaptionVisibility;
-  private saved = false;
-  private cancelled = false;
-
-  constructor(
-    app: App,
-    item: GalleryItem,
-    private readonly onPreview: (overrides: PhotoCaptionOverrides) => void,
-    private readonly onSave: (overrides: PhotoCaptionOverrides) => void,
-    private readonly onCancel: () => void
-  ) {
-    super(app);
-    this.captionFont = item.captionFont;
-    this.captionLines = item.captionLines;
-    this.captionAlign = item.captionAlign;
-    this.captionVisibility = item.captionVisibility;
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl('h2', { text: 'Photo caption settings' });
-    contentEl.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'Only applies to this photo. Inherited options follow this gallery’s current appearance.'
-    });
-
-    new Setting(contentEl)
-      .setName('Show caption')
-      .addDropdown((dropdown) => {
-        dropdown.addOption('inherit', 'Use gallery setting');
-        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
-        dropdown
-          .setValue(this.captionVisibility ?? 'inherit')
-          .onChange((value) => {
-            this.captionVisibility = value === 'inherit' ? undefined : parseCaptionVisibility(value);
-            this.preview();
-          });
-      });
-
-    new Setting(contentEl)
-      .setName('Caption font')
-      .addDropdown((dropdown) => dropdown
-        .addOption('inherit', 'Use gallery setting')
-        .addOption('default', 'Default')
-        .addOption('monospace', 'Typewriter (monospace)')
-        .setValue(this.captionFont ?? 'inherit')
-        .onChange((value) => {
-          this.captionFont = value === 'default' || value === 'monospace' ? value : undefined;
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Caption length')
-      .addDropdown((dropdown) => dropdown
-        .addOption('inherit', 'Use gallery setting')
-        .addOption('full', 'Full')
-        .addOption('single', 'Single line')
-        .setValue(this.captionLines ?? 'inherit')
-        .onChange((value) => {
-          this.captionLines = value === 'full' || value === 'single' ? value : undefined;
-          this.preview();
-        }));
-
-    addCaptionAlignButtons(
-      new Setting(contentEl)
-        .setName('Caption alignment')
-        .setDesc('Click the active button again to use the gallery setting.'),
-      () => this.captionAlign,
-      (value) => {
-        this.captionAlign = value;
-        this.preview();
-      },
-      true
-    );
-
-    new Setting(contentEl)
-      .addButton((button) => button
-        .setButtonText('Save')
-        .setCta()
-        .onClick(() => {
-          this.saved = true;
-          this.onSave(this.values());
-          this.close();
-        }))
-      .addButton((button) => button
-        .setButtonText('Use gallery settings')
-        .onClick(() => this.resetToGallery()))
-      .addButton((button) => button
-        .setButtonText('Cancel')
-        .onClick(() => {
-          this.cancelled = true;
-          this.close();
-        }));
-  }
-
-  /**
-   * Choosing a setting is the action: closing the modal any way except the
-   * explicit Cancel button saves what's selected. Anything else quietly
-   * reverts the live preview the user has been watching, which reads as
-   * "my selection didn't persist".
-   */
-  onClose(): void {
-    if (this.cancelled) this.onCancel();
-    else if (!this.saved) this.onSave(this.values());
-    this.contentEl.empty();
-  }
-
-  private values(): PhotoCaptionOverrides {
-    return {
-      captionFont: this.captionFont,
-      captionLines: this.captionLines,
-      captionAlign: this.captionAlign,
-      captionVisibility: this.captionVisibility
-    };
-  }
-
-  private preview(): void {
-    this.onPreview(this.values());
-  }
-
-  private resetToGallery(): void {
-    this.captionFont = undefined;
-    this.captionLines = undefined;
-    this.captionAlign = undefined;
-    this.captionVisibility = undefined;
-    this.onOpen();
-    this.preview();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Per-gallery settings modal, opened from the gear button in Live Preview.
-// ---------------------------------------------------------------------------
-
 interface GalleryOverrides {
   layout?: GalleryLayout;
   minThumbnailSize?: number;
@@ -1007,246 +832,225 @@ interface GalleryOverrides {
   cornerRadius?: number;
 }
 
-/**
- * Lets a single gallery's settings be edited visually instead of by hand-
- * typing preamble fields. Every control starts at this gallery's current
- * effective value (its own override, or else the live global default).
- * Saving only writes fields that end up differing from the current global
- * default -- pick a value that matches "normal" and no override line is
- * added at all, keeping the block clean.
- */
-class GallerySettingsModal extends Modal {
-  private layout: GalleryLayout;
-  private minThumbnailSize: number;
-  private gapSize: number;
-  private captionVisibility: CaptionVisibility;
-  private captionFont: CaptionFont;
-  private captionLines: CaptionLines;
-  private captionAlign: CaptionAlign;
-  private captionPlacement: CaptionPlacement;
-  private cornerRadius: number;
-  private saved = false;
-  private cancelled = false;
+type AppearanceKey = keyof GalleryOverrides;
+const APPEARANCE_KEYS: AppearanceKey[] = ['layout', 'minThumbnailSize', 'gapSize', 'captionVisibility',
+  'captionFont', 'captionLines', 'captionAlign', 'captionPlacement', 'cornerRadius'];
+const PHOTO_KEYS: AppearanceKey[] = ['captionVisibility', 'captionAlign', 'captionFont', 'captionLines'];
 
-  constructor(
-    app: App,
-    private readonly defaults: SimpleGallerySettings,
-    block: GalleryBlock,
-    private readonly onPreview: (settings: GalleryOverrides) => void,
-    private readonly onSave: (overrides: GalleryOverrides) => void,
-    private readonly onCancel: () => void,
-    private readonly onRemove: () => void
-  ) {
-    super(app);
-    this.layout = block.layout ?? defaults.layout;
-    this.minThumbnailSize = block.minThumbnailSize ?? defaults.minThumbnailSize;
-    this.gapSize = block.gapSize ?? defaults.gapSize;
-    this.captionVisibility = block.captionVisibility ?? defaults.captionVisibility;
-    this.captionFont = block.captionFont ?? defaults.captionFont;
-    this.captionLines = block.captionLines ?? defaults.captionLines;
-    this.captionAlign = block.captionAlign ?? defaults.captionAlign;
-    this.captionPlacement = block.captionPlacement ?? defaults.captionPlacement;
-    this.cornerRadius = block.cornerRadius ?? defaults.cornerRadius;
-  }
+function copyOverrides(source: GalleryOverrides, keys = APPEARANCE_KEYS): GalleryOverrides {
+  const result: GalleryOverrides = {};
+  for (const key of keys) Object.assign(result, { [key]: source[key] });
+  return result;
+}
 
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl('h2', { text: 'Gallery settings' });
-    contentEl.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'Only applies to this gallery. A control left matching the current global default won’t add an override.'
+/** One appearance editor for defaults, galleries and photos. Undefined means inherit. */
+function renderAppearanceControls(
+  container: HTMLElement,
+  scope: 'Plugin' | 'Gallery' | 'Photo',
+  model: GalleryOverrides,
+  defaults: SimpleGallerySettings,
+  inherited: GalleryOverrides,
+  onChange: () => void
+): void {
+  container.addClass('simple-gallery-appearance');
+  const refreshers: (() => void)[] = [];
+  const value = (key: AppearanceKey): string | number => model[key] ?? inherited[key] ?? defaults[key];
+  const source = (key: AppearanceKey): string => scope === 'Plugin' ? 'Plugin default'
+    : model[key] !== undefined ? `${scope} override`
+      : scope === 'Photo' && inherited[key] !== undefined ? 'From gallery' : 'From plugin defaults';
+  const update = (key: AppearanceKey, next: string | number | undefined): void => {
+    Object.assign(model, { [key]: next });
+    refreshers.forEach((refresh) => refresh());
+    onChange();
+  };
+  container.createEl('p', { cls: 'simple-gallery-scope', text: scope === 'Plugin'
+    ? 'Defaults for all galleries. Individual galleries and photos can override them.'
+    : scope === 'Gallery' ? 'Changes apply to this gallery. Photos keep their own overrides.'
+      : 'Changes apply to this photo. Unchanged controls follow the gallery.' });
+
+  const row = (parent: HTMLElement, key: AppearanceKey, name: string): Setting => {
+    const setting = new Setting(parent).setName(name);
+    setting.settingEl.dataset.appearanceKey = key;
+    const status = setting.descEl.createSpan({ cls: 'simple-gallery-setting-source' });
+    refreshers.push(() => { status.textContent = source(key); });
+    return setting;
+  };
+  const reset = (setting: Setting, key: AppearanceKey): void => {
+    if (scope === 'Plugin') return;
+    setting.addButton((button) => {
+      button.setIcon('rotate-ccw').setTooltip(scope === 'Photo' ? 'Use gallery setting' : 'Use plugin default')
+        .onClick(() => update(key, undefined));
+      button.buttonEl.addClass('simple-gallery-setting-reset');
+      button.buttonEl.setAttribute('aria-label', scope === 'Photo' ? 'Use gallery setting' : 'Use plugin default');
+      refreshers.push(() => { button.setDisabled(model[key] === undefined); });
     });
-
-    new Setting(contentEl)
-      .setName('Layout')
-      .addDropdown((dropdown) => dropdown
-        .addOption('masonry', 'Masonry (artistic)')
-        .addOption('grid', 'Grid (uniform)')
-        .addOption('justified', 'Justified (photo rows)')
-        .setValue(this.layout)
-        .onChange((value) => {
-          this.layout = isGalleryLayout(value) ? value : 'masonry';
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Minimum thumbnail size')
-      .addSlider((slider) => slider
-        .setLimits(80, 400, 5)
-        .setValue(this.minThumbnailSize)
-        .onChange((value) => {
-          this.minThumbnailSize = value;
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Gap between images')
-      .addSlider((slider) => slider
-        .setLimits(0, 32, 2)
-        .setValue(this.gapSize)
-        .onChange((value) => {
-          this.gapSize = value;
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Rounded corners')
-      .addSlider((slider) => slider
-        .setLimits(0, 24, 1)
-        .setValue(this.cornerRadius)
-        .onChange((value) => {
-          this.cornerRadius = value;
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Show captions')
-      .addDropdown((dropdown) => {
-        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
-        dropdown
-          .setValue(this.captionVisibility)
-          .onChange((value) => {
-            this.captionVisibility = parseCaptionVisibility(value);
-            this.preview();
-          });
+  };
+  const choices = (parent: HTMLElement, key: AppearanceKey, name: string,
+    options: { value: string | number; label: string; icon?: string }[]): void => {
+    const setting = row(parent, key, name);
+    const group = setting.controlEl.createDiv({ cls: 'simple-gallery-choice-group', attr: { role: 'group', 'aria-label': name } });
+    for (const option of options) {
+      const button = group.createEl('button', { attr: { type: 'button', 'aria-label': option.label, title: option.label } });
+      if (option.icon) setIcon(button, option.icon);
+      else button.textContent = option.label;
+      button.addEventListener('click', () => update(key, option.value));
+      refreshers.push(() => {
+        const active = value(key) === option.value;
+        button.toggleClass('simple-gallery-align-active', active);
+        button.setAttribute('aria-pressed', String(active));
       });
-
-    new Setting(contentEl)
-      .setName('Caption font')
-      .addDropdown((dropdown) => dropdown
-        .addOption('default', 'Default')
-        .addOption('monospace', 'Typewriter (monospace)')
-        .setValue(this.captionFont)
-        .onChange((value) => {
-          this.captionFont = value === 'monospace' ? 'monospace' : 'default';
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .setName('Caption length')
-      .addDropdown((dropdown) => dropdown
-        .addOption('full', 'Full')
-        .addOption('single', 'Single line')
-        .setValue(this.captionLines)
-        .onChange((value) => {
-          this.captionLines = value === 'single' ? 'single' : 'full';
-          this.preview();
-        }));
-
-    addCaptionAlignButtons(
-      new Setting(contentEl).setName('Caption alignment'),
-      () => this.captionAlign,
-      (value) => {
-        this.captionAlign = value ?? this.defaults.captionAlign;
-        this.preview();
-      },
-      false
-    );
-
-    new Setting(contentEl)
-      .setName('Caption placement')
-      .addDropdown((dropdown) => dropdown
-        .addOption('below', 'Below the photo')
-        .addOption('overlay', 'Over the photo')
-        .setValue(this.captionPlacement)
-        .onChange((value) => {
-          this.captionPlacement = value === 'overlay' ? 'overlay' : 'below';
-          this.preview();
-        }));
-
-    new Setting(contentEl)
-      .addButton((button) => button
-        .setButtonText('Save')
-        .setCta()
-        .onClick(() => {
-          this.saved = true;
-          this.onSave(this.overridesFromControls());
-          this.close();
-        }))
-      .addButton((button) => button
-        .setButtonText('Reset to defaults')
-        .onClick(() => this.resetToDefaults()))
-      .addButton((button) => button
-        .setButtonText('Cancel')
-        .onClick(() => {
-          this.cancelled = true;
-          this.close();
-        }));
-
-    new Setting(contentEl)
-      .setName('Remove gallery')
-      .setDesc('Removes this gallery block from the note. Image files are kept.')
-      .addButton((button) => {
-        button
-          .setButtonText('Remove gallery…')
-          .onClick(() => {
-            // Skip apply-on-close: a save's re-render would detach the
-            // element the removal needs for its own line-range lookup.
-            this.cancelled = true;
-            this.close();
-            this.onRemove();
-          });
-        button.buttonEl.addClass('simple-gallery-destructive-button');
-      });
+    }
+    reset(setting, key);
+    if (typeof options[0].value === 'number') {
+      const current = setting.descEl.createSpan({ cls: 'simple-gallery-setting-value' });
+      refreshers.push(() => { current.textContent = `${value(key)} px`; });
+    }
+  };
+  const dropdown = (parent: HTMLElement, key: AppearanceKey, name: string, options: [string, string][]): void => {
+    const setting = row(parent, key, name);
+    setting.addDropdown((control) => {
+      for (const [key, label] of options) control.addOption(key, label);
+      control.selectEl.setAttribute('aria-label', name);
+      control.onChange((next) => update(key, next));
+      refreshers.push(() => { control.setValue(String(value(key))); });
+    });
+    reset(setting, key);
+  };
+  const number = (parent: HTMLElement, key: AppearanceKey, name: string, min: number, max: number): void => {
+    const setting = row(parent, key, name);
+    setting.addSlider((slider) => {
+      slider.setLimits(min, max, 1).onChange((next) => update(key, next));
+      slider.sliderEl.setAttribute('aria-label', name);
+      refreshers.push(() => { slider.setValue(Number(value(key))); });
+    });
+    setting.addText((text) => {
+      text.inputEl.type = 'number';
+      text.inputEl.min = String(min);
+      text.inputEl.max = String(max);
+      text.inputEl.step = '1';
+      text.inputEl.setAttribute('aria-label', `${name} in pixels`);
+      text.inputEl.addClass('simple-gallery-number');
+      // Commit on blur/Enter so entering 160 does not clamp the first digit to 80.
+      const commit = (): void => {
+        const next = Number(text.getValue());
+        if (text.getValue().trim() !== '' && Number.isFinite(next)) update(key, Math.max(min, Math.min(max, Math.round(next))));
+        text.setValue(String(value(key)));
+      };
+      text.inputEl.addEventListener('change', commit);
+      text.inputEl.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); } });
+      refreshers.push(() => { text.setValue(String(value(key))); });
+    });
+    reset(setting, key);
+  };
+  const details = (title: string): HTMLElement => {
+    const el = container.createEl('details', { cls: 'simple-gallery-setting-details' });
+    el.createEl('summary', { text: title });
+    return el.createDiv();
+  };
+  if (scope !== 'Photo') {
+    choices(container, 'layout', 'Layout', [
+      { value: 'masonry', label: 'Masonry' }, { value: 'grid', label: 'Grid' }, { value: 'justified', label: 'Justified' }
+    ]);
+    choices(container, 'minThumbnailSize', 'Photo size', [
+      { value: 120, label: 'Small' }, { value: 160, label: 'Medium' }, { value: 240, label: 'Large' }
+    ]);
+    choices(container, 'gapSize', 'Spacing', [
+      { value: 0, label: 'None' }, { value: 8, label: 'Compact' }, { value: 16, label: 'Airy' }
+    ]);
+    const fine = details('Fine-tune size & corners');
+    fine.createEl('p', { cls: 'setting-item-description', text: 'Photo size sets row height in justified layout, or minimum column width in masonry and grid layouts.' });
+    number(fine, 'minThumbnailSize', 'Photo size', 80, 400);
+    number(fine, 'gapSize', 'Spacing', 0, 32);
+    number(fine, 'cornerRadius', 'Rounded corners', 0, 24);
   }
+  dropdown(container, 'captionVisibility', 'Show captions', CAPTION_VISIBILITY_OPTIONS);
+  choices(container, 'captionAlign', 'Caption alignment', CAPTION_ALIGN_OPTIONS.map((option) => ({ ...option })));
+  const captionDetails = details('Caption style & length');
+  if (scope !== 'Photo') dropdown(captionDetails, 'captionPlacement', 'Placement', [['overlay', 'Over the photo'], ['below', 'Below the photo']]);
+  dropdown(captionDetails, 'captionFont', 'Font', [['default', 'Normal'], ['monospace', 'Typewriter']]);
+  dropdown(captionDetails, 'captionLines', 'Length in gallery', [['full', 'Up to four lines'], ['single', 'Single line']]);
+  captionDetails.createEl('p', { cls: 'setting-item-description', text: 'The fullscreen viewer controls its own caption length.' });
+  refreshers.forEach((refresh) => refresh());
+}
 
-  /** Overrides only where a control differs from the current global default. */
-  private overridesFromControls(): GalleryOverrides {
-    return {
-      layout: this.layout === this.defaults.layout ? undefined : this.layout,
-      minThumbnailSize:
-        this.minThumbnailSize === this.defaults.minThumbnailSize ? undefined : this.minThumbnailSize,
-      gapSize: this.gapSize === this.defaults.gapSize ? undefined : this.gapSize,
-      captionVisibility:
-        this.captionVisibility === this.defaults.captionVisibility ? undefined : this.captionVisibility,
-      captionFont: this.captionFont === this.defaults.captionFont ? undefined : this.captionFont,
-      captionLines: this.captionLines === this.defaults.captionLines ? undefined : this.captionLines,
-      captionAlign: this.captionAlign === this.defaults.captionAlign ? undefined : this.captionAlign,
-      captionPlacement:
-        this.captionPlacement === this.defaults.captionPlacement ? undefined : this.captionPlacement,
-      cornerRadius: this.cornerRadius === this.defaults.cornerRadius ? undefined : this.cornerRadius
+class PhotoSettingsModal extends Modal {
+  private caption: string;
+  private featured?: true;
+  private overrides: GalleryOverrides;
+  private cancelled = false;
+  constructor(app: App, item: GalleryItem, private readonly defaults: SimpleGallerySettings,
+    private readonly gallery: GalleryOverrides,
+    private readonly onPreview: (overrides: PhotoSettingsOverrides) => void,
+    private readonly onSave: (overrides: PhotoSettingsOverrides) => void,
+    private readonly onCancel: () => void) {
+    super(app);
+    this.overrides = copyOverrides(item, PHOTO_KEYS);
+    this.caption = item.caption ?? "";
+    this.featured = item.featured;
+  }
+  onOpen(): void {
+    this.contentEl.empty();
+    this.setTitle('Photo settings');
+    new Setting(this.contentEl).setName('Caption').addTextArea((text) => {
+      text.setValue(this.caption).setPlaceholder('Add a caption…').onChange((value) => { this.caption = value; });
+      text.inputEl.rows = 4;
+      text.inputEl.addClass('simple-gallery-caption-textarea');
+      text.inputEl.setAttribute('aria-label', 'Caption');
+    });
+    const justified = (this.gallery.layout ?? this.defaults.layout) === 'justified';
+    const size = new Setting(this.contentEl).setName('Photo size')
+      .setDesc(justified ? 'Justified keeps photos in equal-height rows. Use gallery photo size to change row height.' : 'Regular uses one column. Larger spans two columns.');
+    const refreshSize = (): void => {
+      size.controlEl.querySelectorAll('button').forEach((button, index) => {
+        button.setAttribute('aria-pressed', String(index === (this.featured ? 1 : 0)));
+        button.toggleClass('simple-gallery-align-active', index === (this.featured ? 1 : 0));
+      });
     };
+    size.addButton((button) => button.setButtonText('− regular').setTooltip('Use regular photo size').setDisabled(justified).onClick(() => { this.featured = undefined; refreshSize(); }))
+      .addButton((button) => button.setButtonText('+ larger').setTooltip('Make photo larger').setDisabled(justified).onClick(() => { this.featured = true; refreshSize(); }));
+    refreshSize();
+    renderAppearanceControls(this.contentEl, 'Photo', this.overrides, this.defaults, this.gallery, () => this.onPreview(this.overrides));
+    new Setting(this.contentEl).addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()))
+      .addButton((button) => button.setButtonText('Use gallery settings').onClick(() => {
+        this.overrides = copyOverrides({}, PHOTO_KEYS); this.onOpen(); this.onPreview(this.overrides);
+      }))
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }));
   }
-
-  /**
-   * Choosing a setting is the action: closing the modal any way except the
-   * explicit Cancel button saves what's selected. Anything else quietly
-   * reverts the live preview the user has been watching, which reads as
-   * "my selection didn't persist".
-   */
   onClose(): void {
-    if (this.cancelled) this.onCancel();
-    else if (!this.saved) this.onSave(this.overridesFromControls());
+    if (this.cancelled) this.onCancel(); else this.onSave({ ...this.overrides,
+      caption: this.caption.replace(/[\r\n]+/g, ' ').trim() || undefined, featured: this.featured });
     this.contentEl.empty();
   }
+}
 
-  private preview(): void {
-    this.onPreview({
-      layout: this.layout,
-      minThumbnailSize: this.minThumbnailSize,
-      gapSize: this.gapSize,
-      captionVisibility: this.captionVisibility,
-      captionFont: this.captionFont,
-      captionLines: this.captionLines,
-      captionAlign: this.captionAlign,
-      captionPlacement: this.captionPlacement,
-      cornerRadius: this.cornerRadius
-    });
+class GallerySettingsModal extends Modal {
+  private overrides: GalleryOverrides;
+  private cancelled = false;
+  constructor(app: App, private readonly defaults: SimpleGallerySettings, block: GalleryBlock,
+    private readonly onPreview: (settings: GalleryOverrides) => void,
+    private readonly onSave: (overrides: GalleryOverrides) => void,
+    private readonly onCancel: () => void, private readonly onRemove: () => void) {
+    super(app);
+    this.overrides = copyOverrides(block);
   }
-
-  private resetToDefaults(): void {
-    this.layout = this.defaults.layout;
-    this.minThumbnailSize = this.defaults.minThumbnailSize;
-    this.gapSize = this.defaults.gapSize;
-    this.captionVisibility = this.defaults.captionVisibility;
-    this.captionFont = this.defaults.captionFont;
-    this.captionLines = this.defaults.captionLines;
-    this.captionAlign = this.defaults.captionAlign;
-    this.captionPlacement = this.defaults.captionPlacement;
-    this.cornerRadius = this.defaults.cornerRadius;
-    this.onOpen();
-    this.preview();
+  onOpen(): void {
+    this.contentEl.empty();
+    this.setTitle('Gallery appearance');
+    renderAppearanceControls(this.contentEl, 'Gallery', this.overrides, this.defaults, {}, () => this.onPreview(this.overrides));
+    new Setting(this.contentEl).addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()))
+      .addButton((button) => button.setButtonText('Use plugin defaults').onClick(() => {
+        this.overrides = copyOverrides({}); this.onOpen(); this.onPreview(this.overrides);
+      }))
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }));
+    const removal = this.contentEl.createEl('details', { cls: 'simple-gallery-setting-details' });
+    removal.createEl('summary', { text: 'Remove gallery' });
+    new Setting(removal).setDesc('Image files are kept.').addButton((button) => button.setButtonText('Remove gallery…').onClick(() => {
+      this.cancelled = true; this.close(); this.onRemove();
+    }));
+  }
+  onClose(): void {
+    if (this.cancelled) this.onCancel(); else this.onSave(this.overrides);
+    this.contentEl.empty();
   }
 }
 
@@ -1524,20 +1328,15 @@ class GalleryRenderChild extends MarkdownRenderChild {
     await this.writeBlockToFile();
   }
 
-  private async commitCaptionChange(sectionIndex: number, itemIndex: number, caption: string): Promise<void> {
-    const item = this.block.sections[sectionIndex]?.items[itemIndex];
-    if (!item) return;
-    item.caption = caption || undefined;
-    await this.writeBlockToFile();
-  }
-
-  private async commitPhotoCaptionOverrides(
+  private async commitPhotoSettingsOverrides(
     sectionIndex: number,
     itemIndex: number,
-    overrides: PhotoCaptionOverrides
+    overrides: PhotoSettingsOverrides
   ): Promise<void> {
     const item = this.block.sections[sectionIndex]?.items[itemIndex];
     if (!item) return;
+    item.caption = overrides.caption;
+    item.featured = overrides.featured;
     item.captionFont = overrides.captionFont;
     item.captionLines = overrides.captionLines;
     item.captionAlign = overrides.captionAlign;
@@ -1600,7 +1399,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     await this.writeBlockToFile();
   }
 
-  /** Applies the (already default-filtered) overrides chosen in GallerySettingsModal. */
+  /** Applies the explicit overrides chosen in GallerySettingsModal. */
   private async commitOverrides(overrides: GalleryOverrides): Promise<void> {
     this.block.layout = overrides.layout;
     this.block.minThumbnailSize = overrides.minThumbnailSize;
@@ -1666,39 +1465,36 @@ class GalleryRenderChild extends MarkdownRenderChild {
     new Notice('Gallery removed. Image files were not deleted.');
   }
 
-  /**
-   * Click-to-edit for a caption: clicking the caption (or its "Add a
-   * caption" overlay) swaps it for a text input pre-filled with the
-   * current value. Commits on blur or Enter; Escape cancels.
-   */
+  /** Captions and the photo menu open the same editor. */
   private wireCaptionEditing(grid: HTMLElement, sectionIndex: number): void {
     grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item > .simple-gallery-caption')
       .forEach((captionEl, itemIndex) => {
+        captionEl.setAttribute('tabindex', '0');
+        captionEl.setAttribute('role', 'button');
+        captionEl.setAttribute('aria-label', 'Edit photo caption and settings');
         this.registerDomEvent(captionEl, 'click', (evt: MouseEvent) => {
           evt.stopPropagation();
-          this.startCaptionEdit(captionEl, sectionIndex, itemIndex);
+          this.openPhotoSettings(captionEl.parentElement!, sectionIndex, itemIndex);
+        });
+        this.registerDomEvent(captionEl, 'keydown', (evt: KeyboardEvent) => {
+          if (evt.key !== 'Enter' && evt.key !== ' ') return;
+          evt.preventDefault(); evt.stopPropagation();
+          this.openPhotoSettings(captionEl.parentElement!, sectionIndex, itemIndex);
         });
       });
   }
 
-  /**
-   * The empty-caption placeholder is an overlay on the photo, so opening its
-   * editor in the same overlaid position keeps the grid from reflowing while
-   * typing; the single honest reflow happens when the caption is committed
-   * and the block re-renders with a real caption row.
-   */
-  private startCaptionEdit(captionEl: HTMLElement, sectionIndex: number, itemIndex: number): void {
-    const isPlaceholder = captionEl.hasClass('simple-gallery-caption-empty');
-    // A caption rendered as an overlay (the placeholder always; real captions
-    // in "over photo" placement) gets an overlaid editor too.
-    const overlaid = isPlaceholder || getComputedStyle(captionEl).position === 'absolute';
-    this.makeEditable(
-      captionEl,
-      isPlaceholder ? '' : captionEl.getText(),
-      'Add a caption…',
-      (value) => void this.commitCaptionChange(sectionIndex, itemIndex, value),
-      overlaid ? 'simple-gallery-edit-input-overlay' : undefined
-    );
+  private openPhotoSettings(itemEl: HTMLElement, sectionIndex: number, itemIndex: number): void {
+    const item = this.block.sections[sectionIndex]?.items[itemIndex];
+    if (!item) return;
+    new PhotoSettingsModal(this.app, item, this.plugin.settings, this.block,
+      (overrides) => {
+        applyItemCaptionOverrides(itemEl, { ...item, ...overrides });
+        this.scheduleRecompute(this.grids);
+      },
+      (overrides) => void this.commitPhotoSettingsOverrides(sectionIndex, itemIndex, overrides),
+      () => { applyItemCaptionOverrides(itemEl, item); this.scheduleRecompute(this.grids); }
+    ).open();
   }
 
   /**
@@ -1720,37 +1516,10 @@ class GalleryRenderChild extends MarkdownRenderChild {
         evt.stopPropagation();
         const menu = new Menu();
 
-        const captionEl = itemEl.querySelector<HTMLElement>(':scope > .simple-gallery-caption');
-        if (captionEl) {
-          menu.addItem((entry) => entry
-            .setTitle(item.caption ? 'Edit caption' : 'Add caption')
-            .setIcon('pencil')
-            .onClick(() => this.startCaptionEdit(captionEl, sectionIndex, itemIndex)));
-        }
-
         menu.addItem((entry) => entry
-          .setTitle(item.featured ? 'Use regular size' : 'Make photo larger')
-          .setIcon('star')
-          .onClick(() => void this.commitFeatureToggle(sectionIndex, itemIndex)));
-
-        menu.addItem((entry) => entry
-          .setTitle('Caption settings…')
-          .setIcon('type')
-          .onClick(() => {
-            new PhotoCaptionSettingsModal(
-              this.app,
-              item,
-              (overrides) => {
-                applyItemCaptionOverrides(itemEl, { ...item, ...overrides });
-                this.scheduleRecompute(this.grids);
-              },
-              (overrides) => void this.commitPhotoCaptionOverrides(sectionIndex, itemIndex, overrides),
-              () => {
-                applyItemCaptionOverrides(itemEl, item);
-                this.scheduleRecompute(this.grids);
-              }
-            ).open();
-          }));
+          .setTitle('Photo settings…')
+          .setIcon('sliders-horizontal')
+          .onClick(() => this.openPhotoSettings(itemEl, sectionIndex, itemIndex)));
 
         menu.addSeparator();
 
@@ -1815,15 +1584,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
    * Independently toggles this item's featured/larger state. Multiple items
    * may be enlarged; CSS Grid naturally flows the remaining cells around them.
    */
-  private async commitFeatureToggle(sectionIndex: number, itemIndex: number): Promise<void> {
-    const section = this.block.sections[sectionIndex];
-    const item = section?.items[itemIndex];
-    if (!section || !item) return;
 
-    item.featured = item.featured ? undefined : true;
-
-    await this.writeBlockToFile();
-  }
 
   private wireSectionTitleEditing(titleEl: HTMLElement, sectionIndex: number): void {
     if (sectionIndex < 0) return;
@@ -2206,261 +1967,27 @@ export default class SimpleGalleryPlugin extends Plugin {
   }
 }
 
-const LAYOUT_DESC =
-  'Masonry sizes each thumbnail by its own photo’s proportions for an artistic, ' +
-  'portfolio-style look. Grid uses uniform tiles for a clean, rigid look. Justified ' +
-  'packs photos into equal-height rows at their exact proportions, never cropping.';
-const SHOW_CAPTIONS_DESC =
-  'Where captions appear. Everywhere shows them in the gallery and fullscreen. Gallery ' +
-  'only and Fullscreen only limit them to one view — Fullscreen only keeps the grid clean ' +
-  'and reveals the caption when a photo is opened. Hidden turns them off without removing ' +
-  'them from the source.';
-const CAPTION_PLACEMENT_DESC =
-  'Over lays the caption on the photo’s bottom edge — dense, and adding a caption never ' +
-  'changes the gallery’s layout. Below gives each caption its own row beneath the photo.';
-
 class SimpleGallerySettingTab extends PluginSettingTab {
-  constructor(app: App, private readonly plugin: SimpleGalleryPlugin) {
-    super(app, plugin);
-  }
+  constructor(app: App, private readonly plugin: SimpleGalleryPlugin) { super(app, plugin); }
 
-  /** Declarative settings (Obsidian 1.13+): makes settings appear in Obsidian's settings search. */
   getSettingDefinitions(): SettingDefinitionItem[] {
-    return [
-      {
-        name: 'Layout',
-        desc: LAYOUT_DESC,
-        control: {
-          type: 'dropdown',
-          key: 'layout',
-          defaultValue: DEFAULT_SETTINGS.layout,
-          options: {
-            masonry: 'Masonry (artistic)',
-            grid: 'Grid (uniform)',
-            justified: 'Justified (photo rows)'
-          }
-        }
-      },
-      {
-        name: 'Rounded corners',
-        desc: 'Corner roundness of each thumbnail, in pixels. Zero keeps the photos square-cornered.',
-        control: {
-          type: 'slider',
-          key: 'cornerRadius',
-          defaultValue: DEFAULT_SETTINGS.cornerRadius,
-          min: 0,
-          max: 24,
-          step: 1
-        }
-      },
-      {
-        name: 'Show captions',
-        desc: SHOW_CAPTIONS_DESC,
-        control: {
-          type: 'dropdown',
-          key: 'captionVisibility',
-          defaultValue: DEFAULT_SETTINGS.captionVisibility,
-          options: {
-            both: 'Everywhere',
-            gallery: 'Gallery only',
-            fullscreen: 'Fullscreen only',
-            hidden: 'Hidden'
-          }
-        }
-      },
-      {
-        name: 'Caption placement',
-        desc: CAPTION_PLACEMENT_DESC,
-        control: {
-          type: 'dropdown',
-          key: 'captionPlacement',
-          defaultValue: DEFAULT_SETTINGS.captionPlacement,
-          options: {
-            below: 'Below the photo',
-            overlay: 'Over the photo'
-          }
-        }
-      },
-      {
-        name: 'Caption font',
-        desc: 'Typewriter uses your configured monospace font for captions instead of the normal text font.',
-        control: {
-          type: 'dropdown',
-          key: 'captionFont',
-          defaultValue: DEFAULT_SETTINGS.captionFont,
-          options: {
-            default: 'Default',
-            monospace: 'Typewriter (monospace)'
-          }
-        }
-      },
-      {
-        name: 'Caption length',
-        desc: 'Applies to the gallery view; a fullscreen viewer has its own caption length setting. Full shows the whole caption, wrapping as needed. Single line truncates with an ellipsis.',
-        control: {
-          type: 'dropdown',
-          key: 'captionLines',
-          defaultValue: DEFAULT_SETTINGS.captionLines,
-          options: {
-            full: 'Full',
-            single: 'Single line'
-          }
-        }
-      },
-      {
-        name: 'Caption alignment',
-        desc: 'Horizontal text alignment for image captions.',
-        control: {
-          type: 'dropdown',
-          key: 'captionAlign',
-          defaultValue: DEFAULT_SETTINGS.captionAlign,
-          options: {
-            left: 'Left',
-            center: 'Center',
-            right: 'Right',
-            justify: 'Justified'
-          }
-        }
+    return [{
+      name: 'Gallery appearance',
+      aliases: ['layout', 'masonry', 'grid', 'justified', 'thumbnail', 'size', 'gap', 'spacing', 'captions', 'font', 'alignment', 'corners'],
+      render: (setting) => {
+        setting.settingEl.empty();
+        this.renderControls(setting.settingEl);
       }
-    ];
+    }];
   }
 
-  getControlValue(key: string): unknown {
-    switch (key) {
-      case 'layout': return this.plugin.settings.layout;
-      case 'captionVisibility': return this.plugin.settings.captionVisibility;
-      case 'captionFont': return this.plugin.settings.captionFont;
-      case 'captionLines': return this.plugin.settings.captionLines;
-      case 'captionAlign': return this.plugin.settings.captionAlign;
-      case 'captionPlacement': return this.plugin.settings.captionPlacement;
-      case 'cornerRadius': return this.plugin.settings.cornerRadius;
-      default: return undefined;
-    }
-  }
-
-  async setControlValue(key: string, value: unknown): Promise<void> {
-    switch (key) {
-      case 'layout':
-        if (typeof value === 'string' && isGalleryLayout(value)) this.plugin.settings.layout = value;
-        break;
-      case 'captionVisibility':
-        if (typeof value === 'string') this.plugin.settings.captionVisibility = parseCaptionVisibility(value);
-        break;
-      case 'captionFont':
-        if (value === 'default' || value === 'monospace') this.plugin.settings.captionFont = value;
-        break;
-      case 'captionLines':
-        if (value === 'full' || value === 'single') this.plugin.settings.captionLines = value;
-        break;
-      case 'captionAlign':
-        if (typeof value === 'string' && isCaptionAlign(value)) this.plugin.settings.captionAlign = value;
-        break;
-      case 'captionPlacement':
-        if (value === 'below' || value === 'overlay') this.plugin.settings.captionPlacement = value;
-        break;
-      case 'cornerRadius':
-        if (typeof value === 'number') this.plugin.settings.cornerRadius = value;
-        break;
-      default:
-        return;
-    }
-    await this.plugin.saveSettings();
-  }
-
-  /**
-   * Imperative fallback for Obsidian versions older than 1.13.0, where
-   * getSettingDefinitions() isn't recognized. Not called at all on 1.13+,
-   * where the declarative definitions above render instead.
-   */
   display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
+    this.containerEl.empty();
+    this.renderControls(this.containerEl);
+  }
 
-    new Setting(containerEl)
-      .setName('Layout')
-      .setDesc(LAYOUT_DESC)
-      .addDropdown((dropdown) => dropdown
-        .addOption('masonry', 'Masonry (artistic)')
-        .addOption('grid', 'Grid (uniform)')
-        .addOption('justified', 'Justified (photo rows)')
-        .setValue(this.plugin.settings.layout)
-        .onChange(async (value) => {
-          this.plugin.settings.layout = isGalleryLayout(value) ? value : 'masonry';
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Rounded corners')
-      .setDesc('Corner roundness of each thumbnail, in pixels. Zero keeps the photos square-cornered.')
-      .addSlider((slider) => slider
-        .setLimits(0, 24, 1)
-        .setValue(this.plugin.settings.cornerRadius)
-        .onChange(async (value) => {
-          this.plugin.settings.cornerRadius = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Show captions')
-      .setDesc(SHOW_CAPTIONS_DESC)
-      .addDropdown((dropdown) => {
-        for (const [value, label] of CAPTION_VISIBILITY_OPTIONS) dropdown.addOption(value, label);
-        dropdown
-          .setValue(this.plugin.settings.captionVisibility)
-          .onChange(async (value) => {
-            this.plugin.settings.captionVisibility = parseCaptionVisibility(value);
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('Caption placement')
-      .setDesc(CAPTION_PLACEMENT_DESC)
-      .addDropdown((dropdown) => dropdown
-        .addOption('below', 'Below the photo')
-        .addOption('overlay', 'Over the photo')
-        .setValue(this.plugin.settings.captionPlacement)
-        .onChange(async (value) => {
-          this.plugin.settings.captionPlacement = value === 'overlay' ? 'overlay' : 'below';
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Caption font')
-      .setDesc('Typewriter uses your configured monospace font for captions instead of the normal text font.')
-      .addDropdown((dropdown) => dropdown
-        .addOption('default', 'Default')
-        .addOption('monospace', 'Typewriter (monospace)')
-        .setValue(this.plugin.settings.captionFont)
-        .onChange(async (value) => {
-          this.plugin.settings.captionFont = value === 'monospace' ? 'monospace' : 'default';
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Caption length')
-      .setDesc('Applies to the gallery view; a fullscreen viewer has its own caption length setting. Full shows the whole caption, wrapping as needed. Single line truncates with an ellipsis.')
-      .addDropdown((dropdown) => dropdown
-        .addOption('full', 'Full')
-        .addOption('single', 'Single line')
-        .setValue(this.plugin.settings.captionLines)
-        .onChange(async (value) => {
-          this.plugin.settings.captionLines = value === 'single' ? 'single' : 'full';
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Caption alignment')
-      .setDesc('Horizontal text alignment for image captions.')
-      .addDropdown((dropdown) => dropdown
-        .addOption('left', 'Left')
-        .addOption('center', 'Center')
-        .addOption('right', 'Right')
-        .addOption('justify', 'Justified')
-        .setValue(this.plugin.settings.captionAlign)
-        .onChange(async (value) => {
-          this.plugin.settings.captionAlign = isCaptionAlign(value) ? value : 'center';
-          await this.plugin.saveSettings();
-        }));
+  private renderControls(container: HTMLElement): void {
+    renderAppearanceControls(container, 'Plugin', this.plugin.settings, DEFAULT_SETTINGS, {},
+      () => { void this.plugin.saveSettings(); });
   }
 }

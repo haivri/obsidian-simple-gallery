@@ -685,3 +685,93 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
     transition: none;
   }
 }
+
+/* Shared appearance controls, including Obsidian's declarative settings row. */
+.simple-gallery-appearance {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.simple-gallery-scope {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: 0 0 1em;
+}
+.simple-gallery-appearance .setting-item {
+  flex-wrap: wrap;
+  gap: 0.6em;
+}
+.simple-gallery-appearance .setting-item-control {
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+.simple-gallery-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25em;
+}
+.simple-gallery-appearance button {
+  min-height: 36px;
+}
+.simple-gallery-setting-source {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+.simple-gallery-setting-value {
+  margin-inline-start: 0.7em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-normal);
+}
+.simple-gallery-setting-details {
+  margin: 0.5em 0 1em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 0.6em 0.8em;
+}
+.simple-gallery-setting-details > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: 32px;
+  align-content: center;
+}
+.simple-gallery-appearance input.simple-gallery-number {
+  width: 5em;
+}
+.simple-gallery-appearance button:focus-visible,
+.simple-gallery-setting-details > summary:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .simple-gallery-appearance .setting-item-info {
+    flex-basis: 100%;
+  }
+  .simple-gallery-appearance .setting-item-control {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .simple-gallery-appearance button,
+  .simple-gallery-appearance select,
+  .simple-gallery-appearance input,
+  .simple-gallery-setting-details > summary {
+    min-height: 44px;
+  }
+  .simple-gallery-appearance button {
+    min-width: 44px;
+  }
+}
+
+.simple-gallery-caption-textarea {
+  width: 100%;
+  min-width: min(280px, 100%);
+  resize: vertical;
+}
+/* Keep the full caption in the DOM for the photo editor and fullscreen viewer.
+   Only its gallery presentation is capped, including legacy "full" settings. */
+.simple-gallery-root .simple-gallery-item .simple-gallery-caption:not(.simple-gallery-caption-empty) {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+  max-height: 6.2em;
+}
+.simple-gallery-editable .simple-gallery-caption { cursor: pointer; }

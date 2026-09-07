@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0 - 2026-09-07
+
+- Unified appearance controls across plugin defaults, galleries, and photos, with effective values, source labels, and explicit reset-to-inherit actions. Matching defaults no longer erase intentional overrides.
+- Added photo-size and spacing presets, optional exact controls, and consistent alignment buttons including the Obsidian 1.13+ settings interface.
+- Combined caption text, caption appearance, and regular/larger sizing in Photo settings. Caption clicks open the same dialog.
+- Limited gallery captions to four lines without truncating the stored text or fullscreen caption.
+- Added regression coverage for inheritance, numeric controls, combined photo edits, reset, cancel, and layout-specific sizing.
+
 ## 1.7.0 - 2026-09-07
 
 - Photos open on the first tap on mobile. Photo menus and gallery settings stay directly accessible with comfortable touch targets.
