@@ -1140,10 +1140,6 @@ class GalleryRenderChild extends MarkdownRenderChild {
     this.plugin.galleryInstances.add(this);
 
     if (this.isLivePreview) {
-      this.registerDomEvent(this.containerEl, 'pointerdown', () => {
-        this.containerEl.addClass('simple-gallery-selected');
-      }, { capture: true });
-
       const settingsButton = this.containerEl.querySelector<HTMLElement>('.simple-gallery-settings-button');
       if (settingsButton) {
         this.registerDomEvent(settingsButton, 'click', (evt: MouseEvent) => {
@@ -1166,12 +1162,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
       });
       this.wireSectionRemoveButtons();
 
-      // Deselect without consuming navigation or photo clicks.
-      this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-        const target = evt.target;
-        const clickedGallery = target instanceof Node && this.containerEl.contains(target);
-        this.containerEl.toggleClass('simple-gallery-selected', clickedGallery);
-      });
+
     }
   }
 
@@ -1505,7 +1496,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
   /**
    * One "⋯" button per photo opens a native Menu with every per-photo
    * action, replacing the old four-control hover overlay. On desktop the
-   * button appears on hover and a plain click on the photo itself passes
+   * button stays visible and a plain click on the photo itself passes
    * through untouched to lightbox/fullscreen plugins. On touch screens the
    * menu stays visible, so opening a photo never requires a preliminary tap.
    */

@@ -46,7 +46,7 @@ its own photo's proportions, or **Grid** for evenly cropped, uniform tiles.
   dragging one onto another, edit captions or section names by clicking them, and feature
   any number of photos as bigger visual cells — the note's underlying code block updates
   to match, no manual editing required.
-- Each photo carries a single quiet "⋯" button (on hover on desktop, always present on
+- Each photo carries a single quiet "⋯" button (always visible while editing on desktop and
   mobile) opening a native menu with every per-photo action: captions, larger sizing,
   reordering, section boundaries, and removing the photo from the gallery.
 - On mobile, tap a photo once to open it. Use its “⋯” menu to edit its caption or
@@ -112,8 +112,8 @@ one is independent and the remaining cells reflow around all of them.
 All of this only appears in **Live Preview**. Reading Mode is pure presentation: no
 caption unless a photo actually has one, no buttons, nothing but the gallery itself.
 
-Each photo carries one piece of chrome: a "⋯" button in its top-right corner (revealed on
-hover on desktop, always quietly present on mobile) that opens a native menu with every
+Each photo carries one piece of chrome: a "⋯" button in its top-right corner (quietly visible
+on both desktop and mobile while editing) that opens a native menu with every
 per-photo action. A plain click or tap on the photo itself is never intercepted, so it
 stays available to an installed fullscreen or lightbox plugin in both modes. With the
 [Fullscreen Image](https://github.com/haivri/obsidian-fullscreen-image)
@@ -310,7 +310,7 @@ Themes and CSS snippets can override the plugin's public variables. For example:
 
 ```css
 body {
-  --simple-gallery-hover-scale: 1.03; /* bring back the hover zoom (off by default) */
+  --simple-gallery-hover-scale: 1.03; /* optional Reading view hover zoom */
   --simple-gallery-background: var(--background-primary);
   --simple-gallery-caption-color: var(--text-faint);
 }

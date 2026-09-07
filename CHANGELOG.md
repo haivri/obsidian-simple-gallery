@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2 - 2026-09-07
+
+- Removed hover transforms, fading controls, and empty-caption hover strips in Live Preview. Editing controls stay quietly visible and photos stay still. Keyboard focus remains highlighted; Reading view remains free of editing controls.
+
 ## 1.8.1 - 2026-09-07
 
 - Made selected settings clearly visible with stronger button styling and checked value labels. Inherited choices use a dashed outline and an explicit inherited label, distinct from local overrides.

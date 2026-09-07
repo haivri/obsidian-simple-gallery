@@ -44,28 +44,11 @@ body {
   gap: 0.45em;
 }
 
-/*
- * The button itself is Obsidian's native clickable-icon; these rules only
- * handle its reveal. Kept in normal flow so neither it nor Obsidian's
- * edit-block button covers a photo.
- */
+/* Stable editing controls: no hover reveal or layout/opacity animation. */
 .simple-gallery-toolbar-button {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transition: visibility 120ms ease-out, opacity 120ms ease-out;
-}
-
-.simple-gallery-root:hover .simple-gallery-toolbar-button,
-.simple-gallery-root:focus-within .simple-gallery-toolbar-button,
-.simple-gallery-root.simple-gallery-selected .simple-gallery-toolbar-button {
   visibility: visible;
   opacity: 0.8;
   pointer-events: auto;
-}
-
-.simple-gallery-toolbar-button:hover {
-  opacity: 1;
 }
 
 /*
@@ -214,34 +197,9 @@ button.simple-gallery-destructive-button:hover {
   text-align: var(--simple-gallery-caption-align, center);
 }
 
-/*
- * The "Add a caption" placeholder is stripped out in Reading Mode. In Live
- * Preview it is an overlay strip on the photo's bottom edge — never a
- * normal-flow row — so revealing it on hover cannot change the item's
- * height, and the Masonry grid stays perfectly still under the pointer.
- */
+/* Keep empty placeholders for item indexing, but edit via Photo settings. */
 .simple-gallery-caption-empty {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0.45em 0.65em;
-  color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
-  text-align: center;
-  font-style: italic;
-  font-size: 0.78em;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease-out;
-}
-
-.simple-gallery-item:hover .simple-gallery-caption-empty {
-  opacity: 1;
-  pointer-events: auto;
+  display: none !important;
 }
 
 .simple-gallery-edit-input {
@@ -281,7 +239,7 @@ button.simple-gallery-destructive-button:hover {
 }
 
 .simple-gallery-draggable {
-  cursor: grab;
+  cursor: pointer;
 }
 
 .simple-gallery-draggable:active {
@@ -326,20 +284,9 @@ button.simple-gallery-destructive-button:hover {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  opacity: 0;
-  pointer-events: none;
-  cursor: pointer;
-  transition: opacity 120ms ease-out;
-}
-
-.simple-gallery-item:hover .simple-gallery-item-menu,
-.simple-gallery-item-menu:focus-visible {
-  opacity: 0.9;
+  opacity: 0.85;
   pointer-events: auto;
-}
-
-.simple-gallery-item-menu:hover {
-  opacity: 1;
+  cursor: pointer;
 }
 
 /* Touch controls are directly available; tapping the image opens it once. */
@@ -789,4 +736,18 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
 .simple-gallery-appearance .simple-gallery-setting-value {
   display: inline-block;
   font-weight: 600;
+}
+
+/* A scale(1) transform still creates a stacking context and can flicker on
+   hover. Live Preview keeps photos still, including when a snippet opts in
+   to the optional Reading view zoom. */
+.simple-gallery-editable .simple-gallery-item,
+.simple-gallery-editable .simple-gallery-item:hover {
+  transform: none;
+  transition: none;
+}
+.simple-gallery-editable .simple-gallery-item-menu:focus-visible,
+.simple-gallery-editable .simple-gallery-toolbar-button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
