@@ -978,6 +978,16 @@ function renderAppearanceControls(
   refreshers.forEach((refresh) => refresh());
 }
 
+/** The fields scroll independently; primary actions remain in a stable footer. */
+function createAppearanceModalLayout(modal: Modal): { body: HTMLElement; footer: HTMLElement } {
+  modal.modalEl.addClass('simple-gallery-settings-modal');
+  modal.contentEl.empty();
+  modal.contentEl.addClass('simple-gallery-modal-content');
+  const body = modal.contentEl.createDiv({ cls: 'simple-gallery-modal-body' });
+  const footer = modal.contentEl.createDiv({ cls: 'simple-gallery-modal-footer' });
+  return { body, footer };
+}
+
 class PhotoSettingsModal extends Modal {
   private caption: string;
   private featured?: true;
@@ -994,16 +1004,16 @@ class PhotoSettingsModal extends Modal {
     this.featured = item.featured;
   }
   onOpen(): void {
-    this.contentEl.empty();
+    const { body, footer } = createAppearanceModalLayout(this);
     this.setTitle('Photo settings');
-    new Setting(this.contentEl).setName('Caption').addTextArea((text) => {
+    new Setting(body).setName('Caption').addTextArea((text) => {
       text.setValue(this.caption).setPlaceholder('Add a caption…').onChange((value) => { this.caption = value; });
       text.inputEl.rows = 4;
       text.inputEl.addClass('simple-gallery-caption-textarea');
       text.inputEl.setAttribute('aria-label', 'Caption');
     });
     const justified = (this.gallery.layout ?? this.defaults.layout) === 'justified';
-    const size = new Setting(this.contentEl).setName('Photo size')
+    const size = new Setting(body).setName('Photo size')
       .setDesc(justified ? 'Justified keeps photos in equal-height rows. Use gallery photo size to change row height.' : 'Regular uses one column. Larger spans two columns.');
     const refreshSize = (): void => {
       size.controlEl.querySelectorAll('button').forEach((button, index) => {
@@ -1014,12 +1024,14 @@ class PhotoSettingsModal extends Modal {
     size.addButton((button) => button.setButtonText('− regular').setTooltip('Use regular photo size').setDisabled(justified).onClick(() => { this.featured = undefined; refreshSize(); }))
       .addButton((button) => button.setButtonText('+ larger').setTooltip('Make photo larger').setDisabled(justified).onClick(() => { this.featured = true; refreshSize(); }));
     refreshSize();
-    renderAppearanceControls(this.contentEl, 'Photo', this.overrides, this.defaults, this.gallery, () => this.onPreview(this.overrides));
-    new Setting(this.contentEl).addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()))
-      .addButton((button) => button.setButtonText('Use gallery settings').onClick(() => {
-        this.overrides = copyOverrides({}, PHOTO_KEYS); this.onOpen(); this.onPreview(this.overrides);
-      }))
-      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }));
+    renderAppearanceControls(body, 'Photo', this.overrides, this.defaults, this.gallery, () => this.onPreview(this.overrides));
+    const reset = new Setting(body).addButton((button) => button.setButtonText('Use gallery settings').onClick(() => {
+      this.overrides = copyOverrides({}, PHOTO_KEYS); this.onOpen(); this.onPreview(this.overrides);
+    }));
+    reset.settingEl.addClass('simple-gallery-reset-all');
+    new Setting(footer)
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }))
+      .addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()));
   }
   onClose(): void {
     if (this.cancelled) this.onCancel(); else this.onSave({ ...this.overrides,
@@ -1039,15 +1051,17 @@ class GallerySettingsModal extends Modal {
     this.overrides = copyOverrides(block);
   }
   onOpen(): void {
-    this.contentEl.empty();
+    const { body, footer } = createAppearanceModalLayout(this);
     this.setTitle('Gallery appearance');
-    renderAppearanceControls(this.contentEl, 'Gallery', this.overrides, this.defaults, {}, () => this.onPreview(this.overrides));
-    new Setting(this.contentEl).addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()))
-      .addButton((button) => button.setButtonText('Use plugin defaults').onClick(() => {
-        this.overrides = copyOverrides({}); this.onOpen(); this.onPreview(this.overrides);
-      }))
-      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }));
-    const removal = this.contentEl.createEl('details', { cls: 'simple-gallery-setting-details' });
+    renderAppearanceControls(body, 'Gallery', this.overrides, this.defaults, {}, () => this.onPreview(this.overrides));
+    const reset = new Setting(body).addButton((button) => button.setButtonText('Use plugin defaults').onClick(() => {
+      this.overrides = copyOverrides({}); this.onOpen(); this.onPreview(this.overrides);
+    }));
+    reset.settingEl.addClass('simple-gallery-reset-all');
+    new Setting(footer)
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => { this.cancelled = true; this.close(); }))
+      .addButton((button) => button.setButtonText('Done').setCta().onClick(() => this.close()));
+    const removal = body.createEl('details', { cls: 'simple-gallery-setting-details' });
     removal.createEl('summary', { text: 'Remove gallery' });
     new Setting(removal).setDesc('Image files are kept.').addButton((button) => button.setButtonText('Remove gallery…').onClick(() => {
       this.cancelled = true; this.close(); this.onRemove();

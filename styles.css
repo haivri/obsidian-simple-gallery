@@ -751,3 +751,118 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
+
+/* Bounded dialogs with one scrolling field area and a separate action footer. */
+.modal.simple-gallery-settings-modal {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+}
+.simple-gallery-settings-modal .simple-gallery-modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.simple-gallery-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+.simple-gallery-modal-footer {
+  flex: 0 0 auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+.simple-gallery-modal-footer .setting-item,
+.simple-gallery-reset-all.setting-item {
+  padding: 0;
+  border: 0;
+}
+.simple-gallery-modal-footer .setting-item-info,
+.simple-gallery-reset-all .setting-item-info {
+  display: none;
+}
+.simple-gallery-modal-footer .setting-item-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  gap: 12px;
+}
+.simple-gallery-modal-footer button {
+  width: 100%;
+  min-height: 44px;
+}
+.simple-gallery-reset-all .setting-item-control {
+  width: 100%;
+  justify-content: flex-start;
+  margin-block: 12px;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .modal.simple-gallery-settings-modal {
+    width: calc(100% - 24px);
+    margin-top: max(16px, env(safe-area-inset-top));
+    margin-bottom: max(16px, env(safe-area-inset-bottom));
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .simple-gallery-appearance .setting-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .simple-gallery-appearance .setting-item-info {
+    flex-basis: auto;
+    margin: 0;
+  }
+  .simple-gallery-appearance .setting-item-control {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+  }
+  .simple-gallery-choice-group {
+    display: flex;
+    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .simple-gallery-choice-group button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+  .simple-gallery-appearance .setting-item-control > select,
+  .simple-gallery-appearance .setting-item-control > textarea {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .simple-gallery-appearance .setting-item-control > input[type="range"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 0;
+  }
+  .simple-gallery-appearance .simple-gallery-setting-reset {
+    flex: 0 0 44px;
+  }
+  .simple-gallery-caption-textarea {
+    min-width: 0;
+  }
+}
+.simple-gallery-settings-modal .modal-title {
+  flex: 0 0 auto;
+}
+.simple-gallery-settings-modal .simple-gallery-modal-content {
+  flex: 1 1 auto;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .simple-gallery-appearance .setting-item-control > button:not(.simple-gallery-setting-reset) {
+    flex: 1 1 0;
+  }
+}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.3 - 2026-09-07
+
+- Bounded photo/gallery dialogs to the available viewport with mobile safe-area spacing. Fields scroll independently above a stable Cancel/Done footer.
+- Aligned mobile controls in consistent rows, keeping choice buttons together and reset controls beside their fields.
+
 ## 1.8.2 - 2026-09-07
 
 - Removed hover transforms, fading controls, and empty-caption hover strips in Live Preview. Editing controls stay quietly visible and photos stay still. Keyboard focus remains highlighted; Reading view remains free of editing controls.

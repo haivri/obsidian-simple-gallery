@@ -23,6 +23,7 @@ function setup() {
   HTMLElement.prototype.createSpan = function (options) { return this.createEl('span', options); };
   class Base {}
   class Modal {
+    modalEl = document.createElement('div');
     contentEl = document.createElement('div');
     setTitle(title) { this.title = title; }
     close() { this.onClose(); }
@@ -132,7 +133,11 @@ test('gallery save preserves explicit matching defaults; reset only removes over
 test('photo dialog saves caption, appearance and size together; cancel does not save', () => {
   const env = setup(); let saved; let cancelled = false;
   const modal = new env.PhotoSettingsModal({}, { caption: 'Old', featured: true }, env.DEFAULT_SETTINGS, { layout: 'grid' }, () => {}, (value) => { saved = value; }, () => {});
-  modal.onOpen(); const text = modal.contentEl.querySelector('textarea');
+  modal.onOpen();
+  const footer = modal.contentEl.querySelector('.simple-gallery-modal-footer');
+  assert.deepEqual(Array.from(footer.querySelectorAll('button'), (button) => button.textContent), ['Cancel', 'Done']);
+  assert.ok(modal.contentEl.querySelector('.simple-gallery-modal-body textarea'));
+  const text = modal.contentEl.querySelector('textarea');
   text.value = 'Long caption\nkept as one paragraph'; text.dispatchEvent(new env.window.Event('input'));
   click(modal.contentEl, '− regular'); click(modal.contentEl, 'Align left'); click(modal.contentEl, 'Done');
   assert.equal(saved.caption, 'Long caption kept as one paragraph'); assert.equal(saved.featured, undefined); assert.equal(saved.captionAlign, 'left');
