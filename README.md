@@ -291,7 +291,8 @@ any of them — see [Per-gallery overrides](#per-gallery-overrides) above.
   This limit prevents long captions from stretching a gallery. Complete text remains stored;
   the fullscreen viewer controls its own caption length.
 - **Caption alignment** — The same left, center, right, and justify buttons at all three levels.
-  The selected button always shows the effective alignment, including an inherited value.
+  Explicit selections use a solid accent highlight and a checked value label. Inherited
+  values use a dashed outline and an inherited label.
 - **Photo size & spacing** — Quick presets at both plugin and gallery levels, with current
   pixel values shown. Expand **Fine-tune size & corners** to enter an exact value or use a slider.
 

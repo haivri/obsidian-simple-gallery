@@ -83,13 +83,6 @@ button.simple-gallery-destructive-button:hover {
   color: var(--text-on-accent);
 }
 
-/* The four alignment icon buttons in the settings modals. */
-.simple-gallery-align-active,
-.simple-gallery-align-active:hover {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
 .simple-gallery-intro,
 .simple-gallery-note {
   margin: 0 0 0.5em;
@@ -775,3 +768,25 @@ body.simple-gallery-caption-lines-single .simple-gallery-caption {
   max-height: 6.2em;
 }
 .simple-gallery-editable .simple-gallery-caption { cursor: pointer; }
+
+/* Outrank native/theme button styles; keep selection visible after hover ends. */
+.simple-gallery-appearance button.simple-gallery-align-active,
+.simple-gallery-appearance button.simple-gallery-align-active:hover,
+.simple-gallery-appearance button.simple-gallery-align-active:focus {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  box-shadow: inset 0 0 0 2px var(--interactive-accent), 0 0 0 1px var(--text-normal);
+  font-weight: 600;
+}
+.simple-gallery-appearance button.simple-gallery-choice-inherited,
+.simple-gallery-appearance button.simple-gallery-choice-inherited:hover {
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  outline: 1px dashed var(--text-muted);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+.simple-gallery-appearance .simple-gallery-setting-value {
+  display: inline-block;
+  font-weight: 600;
+}

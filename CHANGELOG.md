@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1 - 2026-09-07
+
+- Made selected settings clearly visible with stronger button styling and checked value labels. Inherited choices use a dashed outline and an explicit inherited label, distinct from local overrides.
+
 ## 1.8.0 - 2026-09-07
 
 - Unified appearance controls across plugin defaults, galleries, and photos, with effective values, source labels, and explicit reset-to-inherit actions. Matching defaults no longer erase intentional overrides.

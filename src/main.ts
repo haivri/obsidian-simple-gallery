@@ -896,15 +896,20 @@ function renderAppearanceControls(
       button.addEventListener('click', () => update(key, option.value));
       refreshers.push(() => {
         const active = value(key) === option.value;
-        button.toggleClass('simple-gallery-align-active', active);
+        const explicit = scope === 'Plugin' || model[key] !== undefined;
+        button.toggleClass('simple-gallery-align-active', active && explicit);
+        button.toggleClass('simple-gallery-choice-inherited', active && !explicit);
         button.setAttribute('aria-pressed', String(active));
       });
     }
     reset(setting, key);
-    if (typeof options[0].value === 'number') {
-      const current = setting.descEl.createSpan({ cls: 'simple-gallery-setting-value' });
-      refreshers.push(() => { current.textContent = `${value(key)} px`; });
-    }
+    const current = setting.descEl.createSpan({ cls: 'simple-gallery-setting-value', attr: { 'aria-live': 'polite' } });
+    refreshers.push(() => {
+      const selected = options.find((option) => option.value === value(key));
+      const label = typeof value(key) === 'number' ? `${value(key)} px` : selected?.label ?? String(value(key));
+      const explicit = scope === 'Plugin' || model[key] !== undefined;
+      current.textContent = explicit ? `✓ ${label}` : `${label} (inherited)`;
+    });
   };
   const dropdown = (parent: HTMLElement, key: AppearanceKey, name: string, options: [string, string][]): void => {
     const setting = row(parent, key, name);

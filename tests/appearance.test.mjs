@@ -86,11 +86,17 @@ test('inherited values are selected; explicit same-value overrides survive; rese
   const row = root.querySelector('[data-appearance-key="captionAlign"]');
   assert.equal(row.querySelector('[aria-pressed="true"]').getAttribute('aria-label'), 'Align right');
   assert.equal(row.querySelector('.simple-gallery-setting-source').textContent, 'From gallery');
+  assert.ok(row.querySelector('[aria-label="Align right"]').classList.contains('simple-gallery-choice-inherited'));
+  assert.equal(row.querySelector('.simple-gallery-align-active'), null);
   click(row, 'Align right');
   assert.equal(model.captionAlign, 'right');
+  assert.ok(row.querySelector('[aria-label="Align right"]').classList.contains('simple-gallery-align-active'));
+  assert.equal(row.querySelector('.simple-gallery-choice-inherited'), null);
   assert.equal(row.querySelector('.simple-gallery-setting-source').textContent, 'Photo override');
   click(row, 'Use gallery setting');
   assert.equal(model.captionAlign, undefined);
+  assert.equal(row.querySelector('.simple-gallery-align-active'), null);
+  assert.ok(row.querySelector('.simple-gallery-choice-inherited'));
   assert.equal(row.querySelector('[aria-pressed="true"]').getAttribute('aria-label'), 'Align right');
   env.dom.window.close();
 });
@@ -103,7 +109,7 @@ test('presets, exact values and inherited numeric values stay synchronized', () 
   exact.value = '173'; exact.dispatchEvent(new env.window.Event('change'));
   assert.equal(model.minThumbnailSize, 173);
   const basic = root.querySelector('[data-appearance-key="minThumbnailSize"]');
-  assert.equal(basic.querySelector('.simple-gallery-setting-value').textContent, '173 px');
+  assert.equal(basic.querySelector('.simple-gallery-setting-value').textContent, '✓ 173 px');
   assert.equal(basic.querySelectorAll('[aria-pressed="true"]').length, 0);
   exact.value = ''; exact.dispatchEvent(new env.window.Event('change'));
   assert.equal(model.minThumbnailSize, 173);
