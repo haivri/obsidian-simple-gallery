@@ -349,31 +349,39 @@ button.simple-gallery-destructive-button:hover {
   opacity: 1;
 }
 
-/*
- * No hover on touch: a first tap on a photo reveals its menu button
- * (.simple-gallery-item-menu-revealed, set in wireItemMenus). Until then
- * the image ignores pointer events, so a lightbox/fullscreen plugin
- * watching for img clicks only ever sees the second tap. The reveal
- * machinery is Live Preview only (.simple-gallery-editable): Reading Mode
- * has no menu buttons, and its first tap must reach the lightbox.
- */
+/* Touch controls are directly available; tapping the image opens it once. */
 body.is-mobile .simple-gallery-item-menu {
-  width: 2.25rem;
-  height: 2.25rem;
-}
-
-body.is-mobile .simple-gallery-editable .simple-gallery-item:not(.simple-gallery-item-menu-revealed) .simple-gallery-img {
-  pointer-events: none;
-}
-
-body.is-mobile .simple-gallery-item:not(.simple-gallery-item-menu-revealed) .simple-gallery-item-menu {
-  opacity: 0;
-  pointer-events: none;
-}
-
-body.is-mobile .simple-gallery-item-menu-revealed .simple-gallery-item-menu {
+  width: 2.75rem;
+  height: 2.75rem;
   opacity: 0.9;
   pointer-events: auto;
+}
+
+body.is-mobile .simple-gallery-toolbar-button {
+  visibility: visible;
+  opacity: 0.8;
+  pointer-events: auto;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+@media (hover: none) {
+  .simple-gallery-item-menu {
+    width: 2.75rem;
+    height: 2.75rem;
+    opacity: 0.9;
+    pointer-events: auto;
+  }
+  .simple-gallery-toolbar-button {
+    visibility: visible;
+    opacity: 0.8;
+    pointer-events: auto;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  .simple-gallery-caption-empty {
+    display: none;
+  }
 }
 
 body.is-mobile .simple-gallery-item-featured .simple-gallery-edit-input {

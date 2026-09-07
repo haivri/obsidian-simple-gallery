@@ -9,7 +9,6 @@ import {
   Menu,
   Modal,
   Notice,
-  Platform,
   Plugin,
   PluginSettingTab,
   setIcon,
@@ -75,8 +74,9 @@ function isCaptionAlign(value: string): value is CaptionAlign {
  * capture runs before any document-level capture listener (Obsidian's and
  * other plugins' included), so the one dismissal click is fully absorbed.
  */
-function swallowNextClick(): void {
+function swallowNextClick(gallery: HTMLElement): void {
   const swallow = (evt: MouseEvent): void => {
+    if (!(evt.target instanceof Node) || !gallery.contains(evt.target)) return;
     evt.preventDefault();
     evt.stopPropagation();
     evt.stopImmediatePropagation();
@@ -1357,19 +1357,11 @@ class GalleryRenderChild extends MarkdownRenderChild {
       });
       this.wireSectionRemoveButtons();
 
-      // A click anywhere outside deselects the gallery, hiding its toolbar.
-      // On mobile it also re-hides any tap-revealed "⋯" button; a tap that
-      // revealed one never reaches here (wireMobileMenuReveal swallows it).
+      // Deselect without consuming navigation or photo clicks.
       this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
         const target = evt.target;
         const clickedGallery = target instanceof Node && this.containerEl.contains(target);
         this.containerEl.toggleClass('simple-gallery-selected', clickedGallery);
-        this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-item-menu-revealed')
-          .forEach((el) => {
-            if (!(target instanceof Node) || !el.contains(target)) {
-              el.removeClass('simple-gallery-item-menu-revealed');
-            }
-          });
       });
     }
   }
@@ -1713,9 +1705,8 @@ class GalleryRenderChild extends MarkdownRenderChild {
    * One "⋯" button per photo opens a native Menu with every per-photo
    * action, replacing the old four-control hover overlay. On desktop the
    * button appears on hover and a plain click on the photo itself passes
-   * through untouched to lightbox/fullscreen plugins; on mobile, where
-   * there is no hover, a first tap reveals the button instead (see
-   * wireMobileMenuReveal).
+   * through untouched to lightbox/fullscreen plugins. On touch screens the
+   * menu stays visible, so opening a photo never requires a preliminary tap.
    */
   private wireItemMenus(grid: HTMLElement, sectionIndex: number): void {
     const items = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .simple-gallery-item'));
@@ -1723,8 +1714,6 @@ class GalleryRenderChild extends MarkdownRenderChild {
       const button = itemEl.querySelector<HTMLElement>('.simple-gallery-item-menu');
       const item = this.block.sections[sectionIndex]?.items[itemIndex];
       if (!button || !item) return;
-
-      if (Platform.isMobile) this.wireMobileMenuReveal(itemEl);
 
       this.registerDomEvent(button, 'click', (evt: MouseEvent) => {
         evt.preventDefault();
@@ -1765,6 +1754,19 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
         menu.addSeparator();
 
+        if (itemIndex > 0) {
+          menu.addItem((entry) => entry
+            .setTitle('Move earlier')
+            .setIcon('arrow-left')
+            .onClick(() => void this.commitReorder(sectionIndex, itemIndex, itemIndex - 1)));
+        }
+        if (itemIndex < items.length - 1) {
+          menu.addItem((entry) => entry
+            .setTitle('Move later')
+            .setIcon('arrow-right')
+            .onClick(() => void this.commitReorder(sectionIndex, itemIndex, itemIndex + 1)));
+        }
+
         menu.addItem((entry) => entry
           .setTitle('New section above')
           .setIcon('arrow-up-to-line')
@@ -1785,31 +1787,6 @@ class GalleryRenderChild extends MarkdownRenderChild {
 
         menu.showAtMouseEvent(evt);
       });
-    });
-  }
-
-  /**
-   * Mobile has no hover, so without this the "⋯" button would sit over
-   * every photo permanently. Instead the button stays hidden and the image
-   * ignores pointer events (see the body.is-mobile rules in styles.css), so
-   * a first tap lands on the photo wrapper — never reaching the lightbox
-   * plugin's document-level img-click handler — and only reveals the menu
-   * button. The reveal drops the pointer-events block, so a second tap hits
-   * the img and opens the fullscreen viewer as usual. Tapping outside the
-   * item hides the button again (see the document click handler in
-   * initializeAfterAttachment).
-   */
-  private wireMobileMenuReveal(itemEl: HTMLElement): void {
-    const photo = itemEl.querySelector<HTMLElement>(':scope > .simple-gallery-photo');
-    if (!photo) return;
-    this.registerDomEvent(photo, 'click', (evt: MouseEvent) => {
-      if (itemEl.hasClass('simple-gallery-item-menu-revealed')) return;
-      if (evt.target instanceof Element && evt.target.closest('button, input')) return;
-      evt.preventDefault();
-      evt.stopPropagation();
-      this.containerEl.querySelectorAll<HTMLElement>('.simple-gallery-item-menu-revealed')
-        .forEach((el) => el.removeClass('simple-gallery-item-menu-revealed'));
-      itemEl.addClass('simple-gallery-item-menu-revealed');
     });
   }
 
@@ -1880,7 +1857,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     input.value = currentValue;
     input.placeholder = placeholder;
 
-    // A press anywhere else means the coming blur is a click-dismissal; the
+    // A press elsewhere inside this gallery is a click-dismissal; the
     // press itself is stopped from propagating (CodeMirror places its cursor
     // on mousedown, and a cursor inside the gallery's fenced block flips the
     // rendered gallery into its source), and the following click is then
@@ -1891,6 +1868,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
     let dismissedByPointer = false;
     const interceptDismissalPress = (evt: Event): void => {
       if (evt.target === input) return;
+      if (!(evt.target instanceof Node) || !this.containerEl.contains(evt.target)) return;
       dismissedByPointer = true;
       evt.stopPropagation();
     };
@@ -1903,7 +1881,7 @@ class GalleryRenderChild extends MarkdownRenderChild {
       finished = true;
       document.removeEventListener('pointerdown', interceptDismissalPress, { capture: true });
       document.removeEventListener('mousedown', interceptDismissalPress, { capture: true });
-      if (dismissedByPointer) swallowNextClick();
+      if (dismissedByPointer) swallowNextClick(this.containerEl);
       input.replaceWith(displayEl);
       const next = input.value.trim();
       if (commit && next !== currentValue.trim()) onCommit(next);

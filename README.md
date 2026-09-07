@@ -49,7 +49,9 @@ its own photo's proportions, or **Grid** for evenly cropped, uniform tiles.
   to match, no manual editing required.
 - Each photo carries a single quiet "⋯" button (on hover on desktop, always present on
   mobile) opening a native menu with every per-photo action: captions, larger sizing,
-  section boundaries, and removing the photo from the gallery.
+  reordering, section boundaries, and removing the photo from the gallery.
+- On mobile, tap a photo once to open it. Use its “⋯” menu to edit its caption or
+  choose **Move earlier / Move later** to reorder within its section without dragging.
 - Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
   filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
   a remote URL.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0 - 2026-09-07
+
+- Photos open on the first tap on mobile. Photo menus and gallery settings stay directly accessible with comfortable touch targets.
+- Added Move earlier / Move later photo actions for reordering without dragging.
+- Caption editing no longer absorbs navigation clicks outside the gallery; empty caption hints stay hidden on touch screens.
+
 ## 1.6.2 - 2026-09-02
 
 - Fixed featured ("Make photo larger") photos not actually growing in a gallery set to Grid or Masonry while the global layout is Justified: the justified layout's fixed item width leaked into the overriding gallery, so the featured cell spanned two columns but its image stayed pinned at the justified width. (In Justified layout itself, featured intentionally has no effect — rows always keep every photo at natural proportions.)
