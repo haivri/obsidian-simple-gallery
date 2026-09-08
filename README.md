@@ -1,13 +1,43 @@
 # Simple Gallery
 
-<a href="https://www.buymeacoffee.com/robertfleming"><img src="assets/buy-me-a-coffee.png" alt="Buy me a coffee" width="217"></a>
-
 Turn a simple list of image embeds into a responsive, portfolio-style photo gallery — no
 frontmatter, no per-image HTML, just a short list in a code block. Already dropped some
 images into a note? A single command turns them into a gallery on the spot.
 
 Simple Gallery is deliberately small and local-first. Its editing controls only rewrite
 the gallery block you act on; it does not collect telemetry or make network requests.
+
+## Features
+
+- Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
+- A **Convert selection to gallery** command turns existing images already in a note —
+  bulleted or not, selected or not — straight into a gallery block. An **Insert empty
+  gallery block** command starts one from scratch.
+- Reorder photos by clicking and dragging a thumbnail, swap photos between sections by
+  dragging one onto another, edit captions or section names by clicking them, and feature
+  any number of photos as bigger visual cells — the note's underlying code block updates
+  to match, no manual editing required.
+- Each photo carries a single quiet "⋯" button (always visible while editing on desktop and
+  mobile) opening a native menu with every per-photo action: captions, larger sizing,
+  reordering, section boundaries, and removing the photo from the gallery.
+- On mobile, tap a photo once to open it. Use its “⋯” menu to edit its caption or
+  choose **Move earlier / Move later** to reorder within its section without dragging.
+- Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
+  filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
+  a remote URL.
+- Optional per-image captions, any number of featured photos, optional `section:`
+  groupings, and an optional intro blurb — all opt-in; a plain list of images works with
+  none of them.
+- Default **Justified** layout packs photos into equal-height rows at their exact
+  proportions, never cropping — the classic photography-portfolio presentation. Optional
+  **Masonry** (column-flow, sized by each photo's proportions) and **Grid** (uniform,
+  cropped tiles) layouts. Every setting — layout, thumbnail size, gap, captions — can
+  also be overridden for a single gallery, right in its code block.
+- Broken or unresolved image references degrade gracefully to an inline placeholder.
+- A documented set of CSS custom properties for deeper visual customization via snippets.
+- Works without external services on desktop and mobile.
+
+<a href="https://www.buymeacoffee.com/robertfleming"><img src="assets/buy-me-a-coffee.png" alt="Buy me a coffee" width="217"></a>
 
 ## See it in action
 
@@ -42,36 +72,6 @@ With Fullscreen Image installed, browse gallery photos with captions, navigation
 <p align="center">
   <img src="screenshots/06-fullscreen-captions.png" alt="With Fullscreen Image installed, browse gallery photos with captions, navigation, and zoom." width="900">
 </p>
-
-## Features
-
-- Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
-- A **Convert selection to gallery** command turns existing images already in a note —
-  bulleted or not, selected or not — straight into a gallery block. An **Insert empty
-  gallery block** command starts one from scratch.
-- Reorder photos by clicking and dragging a thumbnail, swap photos between sections by
-  dragging one onto another, edit captions or section names by clicking them, and feature
-  any number of photos as bigger visual cells — the note's underlying code block updates
-  to match, no manual editing required.
-- Each photo carries a single quiet "⋯" button (always visible while editing on desktop and
-  mobile) opening a native menu with every per-photo action: captions, larger sizing,
-  reordering, section boundaries, and removing the photo from the gallery.
-- On mobile, tap a photo once to open it. Use its “⋯” menu to edit its caption or
-  choose **Move earlier / Move later** to reorder within its section without dragging.
-- Accepts standard image embeds (`![[photo.jpg]]`, with or without an alias), bare
-  filenames/relative paths, or a standard Markdown image link (`![alt](path)`), including
-  a remote URL.
-- Optional per-image captions, any number of featured photos, optional `section:`
-  groupings, and an optional intro blurb — all opt-in; a plain list of images works with
-  none of them.
-- Default **Justified** layout packs photos into equal-height rows at their exact
-  proportions, never cropping — the classic photography-portfolio presentation. Optional
-  **Masonry** (column-flow, sized by each photo's proportions) and **Grid** (uniform,
-  cropped tiles) layouts. Every setting — layout, thumbnail size, gap, captions — can
-  also be overridden for a single gallery, right in its code block.
-- Broken or unresolved image references degrade gracefully to an inline placeholder.
-- A documented set of CSS custom properties for deeper visual customization via snippets.
-- Works without external services on desktop and mobile.
 
 ## Usage
 
