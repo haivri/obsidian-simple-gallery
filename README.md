@@ -1,5 +1,7 @@
 # Simple Gallery
 
+<a href="https://www.buymeacoffee.com/robertfleming"><img src="assets/buy-me-a-coffee.png" alt="Buy me a coffee" width="217"></a>
+
 Turn a simple list of image embeds into a responsive, portfolio-style photo gallery — no
 frontmatter, no per-image HTML, just a short list in a code block. Already dropped some
 images into a note? A single command turns them into a gallery on the spot.
@@ -9,32 +11,37 @@ the gallery block you act on; it does not collect telemetry or make network requ
 
 ## See it in action
 
-### Drop in images, run a command, done
+### A gallery inside your note
 
-Drag a handful of photos into a note — with or without selecting them, with or without
-list bullets — and run **Convert selection to gallery** from the command palette. No
-selection at all? It picks up the paragraph of images around your cursor automatically.
+Justified rows preserve photo proportions, with captions and editing controls in Live Preview.
 
-### Reorder by dragging
+<p align="center">
+  <img src="screenshots/01-justified.png" alt="Justified rows preserve photo proportions, with captions and editing controls in Live Preview." width="900">
+</p>
 
-Click and drag a thumbnail to a new spot in the same gallery. The code block's source
-updates immediately to match — no manual list-editing needed.
+### Edit a photo in one place
 
-### Click to edit captions and section names
+Edit the caption and see which appearance settings are inherited from the gallery.
 
-Click a caption to open **Photo settings**, or choose it from the photo’s “⋯” menu.
-Edit the caption, size, and caption appearance together. **Done** saves; **Cancel** discards
-changes. Closing the dialog also saves. Section names still edit directly in the gallery.
+<p align="center">
+  <img src="screenshots/02-photo-settings.png" alt="Edit the caption and see which appearance settings are inherited from the gallery." width="900">
+</p>
 
-### A photographer-style default
+### Make the gallery your own
 
-Justified — the default — packs photos into equal-height rows at their exact proportions,
-never cropping: the way photography books and portfolio sites present a set of images.
+Choose a layout and spacing, with visible selections and clear gallery overrides.
 
-### Two alternatives
+<p align="center">
+  <img src="screenshots/05-gallery-settings.png" alt="Choose a layout and spacing, with visible selections and clear gallery overrides." width="900">
+</p>
 
-Switch to **Masonry** in settings for a column-flow look that sizes each thumbnail from
-its own photo's proportions, or **Grid** for evenly cropped, uniform tiles.
+### From gallery to fullscreen
+
+With Fullscreen Image installed, browse gallery photos with captions, navigation, and zoom.
+
+<p align="center">
+  <img src="screenshots/06-fullscreen-captions.png" alt="With Fullscreen Image installed, browse gallery photos with captions, navigation, and zoom." width="900">
+</p>
 
 ## Features
 
@@ -390,6 +397,16 @@ expanded Live Preview editing experience were developed with OpenAI Codex, inclu
 section boundaries, multi-photo featuring, per-photo caption controls, mobile action
 controls, and gallery removal.
 
+Robert Fleming directed and reviewed this work. Recent refinements, documentation, and screenshot preparation were developed in collaboration with OpenAI Codex, powered by GPT-6. Thank you to the AI collaborators who helped bring these ideas into a usable community plugin.
+
 ## License
 
 MIT
+
+## Screenshot demo
+
+A [ready-to-use screenshot kit](bootstrap/README.md) includes demo notes and capture instructions.
+
+## Feedback
+
+Bug reports are welcome in this repository’s issue tracker when available. Include your Obsidian and plugin versions, desktop or mobile, a short reproduction, and expected versus actual behavior. Use a small sample note without personal content. This is a spare-time project; fixes and replies have no guaranteed schedule. Contributions and forks are welcome; donations are optional.
