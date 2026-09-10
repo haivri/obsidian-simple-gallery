@@ -32,7 +32,7 @@
     "eslint-plugin-obsidianmd": "^0.4.0",
     "globals": "^17.6.0",
     "jsdom": "^30.0.1",
-    "obsidian": "latest",
+    "obsidian": "1.13.1",
     "typescript": "^5.5.0"
   }
 }
