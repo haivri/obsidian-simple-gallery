@@ -7,6 +7,11 @@ images into a note? A single command turns them into a gallery on the spot.
 Simple Gallery is deliberately small and local-first. Its editing controls only rewrite
 the gallery block you act on; it does not collect telemetry or make network requests.
 
+## Companion image plugins
+
+- **[Image Kit](https://github.com/haivri/obsidian-image-kit)** — size, align, and caption individual images from one toolbar.
+- **[Fullscreen Image](https://github.com/haivri/obsidian-fullscreen-image)** — open photos fullscreen, zoom, pan, and browse gallery images.
+
 ## Features
 
 - Renders a `simple-gallery` code block as a responsive, grid-based photo layout.
